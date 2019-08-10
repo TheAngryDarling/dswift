@@ -39,6 +39,1057 @@ fileprivate struct SHConfigFile {
 
 
 extension Commands {
+    
+    static let BAHS_AUTO_COMPLETE: String = """
+    #!/bin/bash
+
+    _dswift()
+    {
+        declare -a cur prev
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+        COMPREPLY=()
+        if [[ $COMP_CWORD == 1 ]]; then
+            _dswift_compiler
+            COMPREPLY+=( $(compgen -W "build rebuild run package test" -- $cur) )
+            return
+        fi
+        case ${COMP_WORDS[1]} in
+            (build)
+                _dswift_build 2
+                ;;
+            (rebuild)
+                _dswift_build 2
+                ;;
+            (run)
+                _dswift_run 2
+                ;;
+            (package)
+                _dswift_package 2
+                ;;
+            (test)
+                _dswift_test 2
+                ;;
+            (*)
+                _dswift_compiler
+                ;;
+        esac
+    }
+    # Generates completions for swift build
+    #
+    # Parameters
+    # - the start position of this parser; set to 1 if unknown
+    function _dswift_build
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "-Xcc -Xswiftc -Xlinker -Xcxx --configuration -c --build-path --chdir -C --package-path --enable-prefetching --disable-prefetching --disable-sandbox --version --destination --verbose -v --no-static-swift-stdlib --static-swift-stdlib --build-tests --product --target --show-bin-path" -- $cur) )
+            return
+        fi
+        case $prev in
+            (-Xcc)
+                return
+            ;;
+            (-Xswiftc)
+                return
+            ;;
+            (-Xlinker)
+                return
+            ;;
+            (-Xcxx)
+                return
+            ;;
+            (--configuration|-c)
+                COMPREPLY=( $(compgen -W "debug release" -- $cur) )
+                return
+            ;;
+            (--build-path)
+                _filedir
+                return
+            ;;
+            (--chdir|-C)
+                _filedir
+                return
+            ;;
+            (--package-path)
+                _filedir
+                return
+            ;;
+            (--enable-prefetching)
+            ;;
+            (--disable-prefetching)
+            ;;
+            (--disable-sandbox)
+            ;;
+            (--version)
+            ;;
+            (--destination)
+                _filedir
+                return
+            ;;
+            (--verbose|-v)
+            ;;
+            (--no-static-swift-stdlib)
+            ;;
+            (--static-swift-stdlib)
+            ;;
+            (--build-tests)
+            ;;
+            (--product)
+                return
+            ;;
+            (--target)
+                return
+            ;;
+            (--show-bin-path)
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "-Xcc -Xswiftc -Xlinker -Xcxx --configuration -c --build-path --chdir -C --package-path --enable-prefetching --disable-prefetching --disable-sandbox --version --destination --verbose -v --no-static-swift-stdlib --static-swift-stdlib --build-tests --product --target --show-bin-path" -- $cur) )
+    }
+
+    # Generates completions for swift run
+    #
+    # Parameters
+    # - the start position of this parser; set to 1 if unknown
+    function _dswift_run
+    {
+        if [[ $COMP_CWORD == $(($1+0)) ]]; then
+                return
+        fi
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "-Xcc -Xswiftc -Xlinker -Xcxx --configuration -c --build-path --chdir -C --package-path --enable-prefetching --disable-prefetching --disable-sandbox --version --destination --verbose -v --no-static-swift-stdlib --static-swift-stdlib --skip-build" -- $cur) )
+            return
+        fi
+        case $prev in
+            (-Xcc)
+                return
+            ;;
+            (-Xswiftc)
+                return
+            ;;
+            (-Xlinker)
+                return
+            ;;
+            (-Xcxx)
+                return
+            ;;
+            (--configuration|-c)
+                COMPREPLY=( $(compgen -W "debug release" -- $cur) )
+                return
+            ;;
+            (--build-path)
+                _filedir
+                return
+            ;;
+            (--chdir|-C)
+                _filedir
+                return
+            ;;
+            (--package-path)
+                _filedir
+                return
+            ;;
+            (--enable-prefetching)
+            ;;
+            (--disable-prefetching)
+            ;;
+            (--disable-sandbox)
+            ;;
+            (--version)
+            ;;
+            (--destination)
+                _filedir
+                return
+            ;;
+            (--verbose|-v)
+            ;;
+            (--no-static-swift-stdlib)
+            ;;
+            (--static-swift-stdlib)
+            ;;
+            (--skip-build)
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "-Xcc -Xswiftc -Xlinker -Xcxx --configuration -c --build-path --chdir -C --package-path --enable-prefetching --disable-prefetching --disable-sandbox --version --destination --verbose -v --no-static-swift-stdlib --static-swift-stdlib --skip-build" -- $cur) )
+    }
+
+    # Generates completions for swift package
+    #
+    # Parameters
+    # - the start position of this parser; set to 1 if unknown
+    function _dswift_package
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "update show-dependencies resolve fetch edit tools-version describe clean completion-tool generate-completion-script install-completion-script reset resolve-tool unedit init generate-xcodeproj dump-package -Xcc -Xswiftc -Xlinker -Xcxx --configuration -c --build-path --chdir -C --package-path --enable-prefetching --disable-prefetching --disable-sandbox --version --destination --verbose -v --no-static-swift-stdlib --static-swift-stdlib" -- $cur) )
+            return
+        fi
+        case $prev in
+            (-Xcc)
+                return
+            ;;
+            (-Xswiftc)
+                return
+            ;;
+            (-Xlinker)
+                return
+            ;;
+            (-Xcxx)
+                return
+            ;;
+            (--configuration|-c)
+                COMPREPLY=( $(compgen -W "debug release" -- $cur) )
+                return
+            ;;
+            (--build-path)
+                _filedir
+                return
+            ;;
+            (--chdir|-C)
+                _filedir
+                return
+            ;;
+            (--package-path)
+                _filedir
+                return
+            ;;
+            (--enable-prefetching)
+            ;;
+            (--disable-prefetching)
+            ;;
+            (--disable-sandbox)
+            ;;
+            (--version)
+            ;;
+            (--destination)
+                _filedir
+                return
+            ;;
+            (--verbose|-v)
+            ;;
+            (--no-static-swift-stdlib)
+            ;;
+            (--static-swift-stdlib)
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+            (update)
+                _dswift_package_update $(($1+1))
+                return
+            ;;
+            (show-dependencies)
+                _dswift_package_show-dependencies $(($1+1))
+                return
+            ;;
+            (resolve)
+                _dswift_package_resolve $(($1+1))
+                return
+            ;;
+            (fetch)
+                _dswift_package_fetch $(($1+1))
+                return
+            ;;
+            (edit)
+                _dswift_package_edit $(($1+1))
+                return
+            ;;
+            (tools-version)
+                _dswift_package_tools-version $(($1+1))
+                return
+            ;;
+            (describe)
+                _dswift_package_describe $(($1+1))
+                return
+            ;;
+            (clean)
+                _dswift_package_clean $(($1+1))
+                return
+            ;;
+            (generate-completion-script)
+                _dswift_package_generate-completion-script $(($1+1))
+                return
+            ;;
+            (completion-tool)
+                _dswift_package_completion-tool $(($1+1))
+                return
+            ;;
+            (install-completion-script)
+                _dswift_package_generate-completion-script $(($1+1))
+                return
+            ;;
+            (reset)
+                _dswift_package_reset $(($1+1))
+                return
+            ;;
+            (resolve-tool)
+                _dswift_package_resolve-tool $(($1+1))
+                return
+            ;;
+            (unedit)
+                _dswift_package_unedit $(($1+1))
+                return
+            ;;
+            (init)
+                _dswift_package_init $(($1+1))
+                return
+            ;;
+            (generate-xcodeproj)
+                _dswift_package_generate-xcodeproj $(($1+1))
+                return
+            ;;
+            (dump-package)
+                _dswift_package_dump-package $(($1+1))
+                return
+            ;;
+        esac
+        COMPREPLY=( $(compgen -W "update show-dependencies resolve fetch edit tools-version describe clean completion-tool generate-completion-script install-completion-script reset resolve-tool unedit init generate-xcodeproj dump-package -Xcc -Xswiftc -Xlinker -Xcxx --configuration -c --build-path --chdir -C --package-path --enable-prefetching --disable-prefetching --disable-sandbox --version --destination --verbose -v --no-static-swift-stdlib --static-swift-stdlib" -- $cur) )
+    }
+
+    function _dswift_package_update
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "" -- $cur) )
+            return
+        fi
+        case $prev in
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "" -- $cur) )
+    }
+
+    function _dswift_package_show-dependencies
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "--format" -- $cur) )
+            return
+        fi
+        case $prev in
+            (--format)
+                COMPREPLY=( $(compgen -W "text dot json" -- $cur) )
+                return
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "--format" -- $cur) )
+    }
+
+    function _dswift_package_resolve
+    {
+        if [[ $COMP_CWORD == $(($1+0)) ]]; then
+                return
+        fi
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "--version --branch --revision" -- $cur) )
+            return
+        fi
+        case $prev in
+            (--version)
+                return
+            ;;
+            (--branch)
+                return
+            ;;
+            (--revision)
+                return
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "--version --branch --revision" -- $cur) )
+    }
+
+    function _dswift_package_fetch
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "" -- $cur) )
+            return
+        fi
+        case $prev in
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "" -- $cur) )
+    }
+
+    function _dswift_package_edit
+    {
+        if [[ $COMP_CWORD == $(($1+0)) ]]; then
+                return
+        fi
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "--revision --branch --path" -- $cur) )
+            return
+        fi
+        case $prev in
+            (--revision)
+                return
+            ;;
+            (--branch)
+                return
+            ;;
+            (--path)
+                _filedir
+                return
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "--revision --branch --path" -- $cur) )
+    }
+
+    function _dswift_package_tools-version
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "--set --set-current" -- $cur) )
+            return
+        fi
+        case $prev in
+            (--set)
+                return
+            ;;
+            (--set-current)
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "--set --set-current" -- $cur) )
+    }
+
+    function _dswift_package_describe
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "--type" -- $cur) )
+            return
+        fi
+        case $prev in
+            (--type)
+                COMPREPLY=( $(compgen -W "text json" -- $cur) )
+                return
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "--type" -- $cur) )
+    }
+
+    function _dswift_package_clean
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "" -- $cur) )
+            return
+        fi
+        case $prev in
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "" -- $cur) )
+    }
+    
+    function _dswift_package_generate-completion-script
+    {
+        if [[ $COMP_CWORD == $(($1+0)) ]]; then
+                COMPREPLY=( $(compgen -W "bash zsh" -- $cur) )
+                return
+        fi
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "" -- $cur) )
+            return
+        fi
+        case $prev in
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "" -- $cur) )
+    }
+
+    function _dswift_package_completion-tool
+    {
+        if [[ $COMP_CWORD == $(($1+0)) ]]; then
+                COMPREPLY=( $(compgen -W "generate-bash-script generate-zsh-script" -- $cur) )
+                return
+        fi
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "" -- $cur) )
+            return
+        fi
+        case $prev in
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "" -- $cur) )
+    }
+
+    function _dswift_package_reset
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "" -- $cur) )
+            return
+        fi
+        case $prev in
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "" -- $cur) )
+    }
+
+    function _dswift_package_resolve-tool
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "--type" -- $cur) )
+            return
+        fi
+        case $prev in
+            (--type)
+                COMPREPLY=( $(compgen -W "text json" -- $cur) )
+                return
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "--type" -- $cur) )
+    }
+
+    function _dswift_package_unedit
+    {
+        if [[ $COMP_CWORD == $(($1+0)) ]]; then
+                return
+        fi
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "--force" -- $cur) )
+            return
+        fi
+        case $prev in
+            (--force)
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "--force" -- $cur) )
+    }
+
+    function _dswift_package_init
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "--type" -- $cur) )
+            return
+        fi
+        case $prev in
+            (--type)
+                COMPREPLY=( $(compgen -W "empty library executable system-module" -- $cur) )
+                return
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "--type" -- $cur) )
+    }
+
+    function _dswift_package_generate-xcodeproj
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "--xcconfig-overrides --enable-code-coverage --output" -- $cur) )
+            return
+        fi
+        case $prev in
+            (--xcconfig-overrides)
+                _filedir
+                return
+            ;;
+            (--enable-code-coverage)
+            ;;
+            (--output)
+                _filedir
+                return
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "--xcconfig-overrides --enable-code-coverage --output" -- $cur) )
+    }
+
+    function _dswift_package_dump-package
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "" -- $cur) )
+            return
+        fi
+        case $prev in
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "" -- $cur) )
+    }
+
+    # Generates completions for swift test
+    #
+    # Parameters
+    # - the start position of this parser; set to 1 if unknown
+    function _dswift_test
+    {
+        if [[ $COMP_CWORD == $1 ]]; then
+            COMPREPLY=( $(compgen -W "-Xcc -Xswiftc -Xlinker -Xcxx --configuration -c --build-path --chdir -C --package-path --enable-prefetching --disable-prefetching --disable-sandbox --version --destination --verbose -v --no-static-swift-stdlib --static-swift-stdlib --skip-build --list-tests -l --parallel --specifier -s --filter" -- $cur) )
+            return
+        fi
+        case $prev in
+            (-Xcc)
+                return
+            ;;
+            (-Xswiftc)
+                return
+            ;;
+            (-Xlinker)
+                return
+            ;;
+            (-Xcxx)
+                return
+            ;;
+            (--configuration|-c)
+                COMPREPLY=( $(compgen -W "debug release" -- $cur) )
+                return
+            ;;
+            (--build-path)
+                _filedir
+                return
+            ;;
+            (--chdir|-C)
+                _filedir
+                return
+            ;;
+            (--package-path)
+                _filedir
+                return
+            ;;
+            (--enable-prefetching)
+            ;;
+            (--disable-prefetching)
+            ;;
+            (--disable-sandbox)
+            ;;
+            (--version)
+            ;;
+            (--destination)
+                _filedir
+                return
+            ;;
+            (--verbose|-v)
+            ;;
+            (--no-static-swift-stdlib)
+            ;;
+            (--static-swift-stdlib)
+            ;;
+            (--skip-build)
+            ;;
+            (--list-tests|-l)
+            ;;
+            (--parallel)
+            ;;
+            (--specifier|-s)
+                return
+            ;;
+            (--filter)
+                return
+            ;;
+        esac
+        case ${COMP_WORDS[$1]} in
+        esac
+        COMPREPLY=( $(compgen -W "-Xcc -Xswiftc -Xlinker -Xcxx --configuration -c --build-path --chdir -C --package-path --enable-prefetching --disable-prefetching --disable-sandbox --version --destination --verbose -v --no-static-swift-stdlib --static-swift-stdlib --skip-build --list-tests -l --parallel --specifier -s --filter" -- $cur) )
+    }
+
+    _dswift_compiler()
+    {
+        if [[ `type -t _dswift_complete`"" == 'function' ]]; then
+            _dswift_complete
+        fi
+    }
+
+    complete -F _dswift dswift
+    """
+    static let ZSH_AUTO_COMPLETE: String = """
+    #compdef dswift
+    local context state state_descr line
+    typeset -A opt_args
+
+    _dswift() {
+        _arguments -C \
+            '(- :)--help[prints the synopsis and a list of the most commonly used commands]: :->arg' \
+            '(-): :->command' \
+            '(-)*:: :->arg' && return
+
+        case $state in
+            (command)
+                local tools
+                tools=(
+                    'build:build sources into binary products'
+                    'rebuild:rebuild dswift files then build sources into binary products'
+                    'run:build and run an executable product'
+                    'package:perform operations on Swift packages'
+                    'test:build and run tests'
+                )
+                _alternative \
+                    'tools:common:{_describe "tool" tools }' \
+                    'compiler: :_dswift_compiler' && _ret=0
+                ;;
+            (arg)
+                case ${words[1]} in
+                    (build)
+                        _dswift_build
+                        ;;
+                    (rebuild)
+                        _dswift_build
+                        ;;
+                    (run)
+                        _dswift_run
+                        ;;
+                    (package)
+                        _dswift_package
+                        ;;
+                    (test)
+                        _dswift_test
+                        ;;
+                    (*)
+                        _dswift_compiler
+                        ;;
+                esac
+                ;;
+        esac
+    }
+
+    # Generates completions for swift build
+    #
+    # In the final compdef file, set the following file header:
+    #
+    #     #compdef _dswift_build
+    #     local context state state_descr line
+    #     typeset -A opt_args
+    _dswift_build() {
+        arguments=(
+            "-Xcc[Pass flag through to all C compiler invocations]:Pass flag through to all C compiler invocations: "
+            "-Xswiftc[Pass flag through to all Swift compiler invocations]:Pass flag through to all Swift compiler invocations: "
+            "-Xlinker[Pass flag through to all linker invocations]:Pass flag through to all linker invocations: "
+            "-Xcxx[Pass flag through to all C++ compiler invocations]:Pass flag through to all C++ compiler invocations: "
+            "(--configuration -c)"{--configuration,-c}"[Build with configuration (debug|release) ]: :{_values '' 'debug[build with DEBUG configuration]' 'release[build with RELEASE configuration]'}"
+            "--build-path[Specify build/cache directory ]:Specify build/cache directory :_files"
+            "(--chdir -C)"{--chdir,-C}"[]: :_files"
+            "--package-path[Change working directory before any other operation]:Change working directory before any other operation:_files"
+            "--enable-prefetching[]"
+            "--disable-prefetching[]"
+            "--disable-sandbox[Disable using the sandbox when executing subprocesses]"
+            "--version[]"
+            "--destination[]: :_files"
+            "(--verbose -v)"{--verbose,-v}"[Increase verbosity of informational output]"
+            "--no-static-swift-stdlib[Do not link Swift stdlib statically]"
+            "--static-swift-stdlib[Link Swift stdlib statically]"
+            "--build-tests[Build both source and test targets]"
+            "--product[Build the specified product]:Build the specified product: "
+            "--target[Build the specified target]:Build the specified target: "
+            "--show-bin-path[Print the binary output path]"
+        )
+        _arguments $arguments && return
+    }
+
+    # Generates completions for swift run
+    #
+    # In the final compdef file, set the following file header:
+    #
+    #     #compdef _dswift_run
+    #     local context state state_descr line
+    #     typeset -A opt_args
+    _dswift_run() {
+        arguments=(
+            ":The executable to run: "
+            "-Xcc[Pass flag through to all C compiler invocations]:Pass flag through to all C compiler invocations: "
+            "-Xswiftc[Pass flag through to all Swift compiler invocations]:Pass flag through to all Swift compiler invocations: "
+            "-Xlinker[Pass flag through to all linker invocations]:Pass flag through to all linker invocations: "
+            "-Xcxx[Pass flag through to all C++ compiler invocations]:Pass flag through to all C++ compiler invocations: "
+            "(--configuration -c)"{--configuration,-c}"[Build with configuration (debug|release) ]: :{_values '' 'debug[build with DEBUG configuration]' 'release[build with RELEASE configuration]'}"
+            "--build-path[Specify build/cache directory ]:Specify build/cache directory :_files"
+            "(--chdir -C)"{--chdir,-C}"[]: :_files"
+            "--package-path[Change working directory before any other operation]:Change working directory before any other operation:_files"
+            "--enable-prefetching[]"
+            "--disable-prefetching[]"
+            "--disable-sandbox[Disable using the sandbox when executing subprocesses]"
+            "--version[]"
+            "--destination[]: :_files"
+            "(--verbose -v)"{--verbose,-v}"[Increase verbosity of informational output]"
+            "--no-static-swift-stdlib[Do not link Swift stdlib statically]"
+            "--static-swift-stdlib[Link Swift stdlib statically]"
+            "--skip-build[Skip building the executable product]"
+        )
+        _arguments $arguments && return
+    }
+
+    # Generates completions for swift package
+    #
+    # In the final compdef file, set the following file header:
+    #
+    #     #compdef _dswift_package
+    #     local context state state_descr line
+    #     typeset -A opt_args
+    _dswift_package() {
+        arguments=(
+            "-Xcc[Pass flag through to all C compiler invocations]:Pass flag through to all C compiler invocations: "
+            "-Xswiftc[Pass flag through to all Swift compiler invocations]:Pass flag through to all Swift compiler invocations: "
+            "-Xlinker[Pass flag through to all linker invocations]:Pass flag through to all linker invocations: "
+            "-Xcxx[Pass flag through to all C++ compiler invocations]:Pass flag through to all C++ compiler invocations: "
+            "(--configuration -c)"{--configuration,-c}"[Build with configuration (debug|release) ]: :{_values '' 'debug[build with DEBUG configuration]' 'release[build with RELEASE configuration]'}"
+            "--build-path[Specify build/cache directory ]:Specify build/cache directory :_files"
+            "(--chdir -C)"{--chdir,-C}"[]: :_files"
+            "--package-path[Change working directory before any other operation]:Change working directory before any other operation:_files"
+            "--enable-prefetching[]"
+            "--disable-prefetching[]"
+            "--disable-sandbox[Disable using the sandbox when executing subprocesses]"
+            "--version[]"
+            "--destination[]: :_files"
+            "(--verbose -v)"{--verbose,-v}"[Increase verbosity of informational output]"
+            "--no-static-swift-stdlib[Do not link Swift stdlib statically]"
+            "--static-swift-stdlib[Link Swift stdlib statically]"
+            '(-): :->command'
+            '(-)*:: :->arg'
+        )
+        _arguments $arguments && return
+        case $state in
+            (command)
+                local modes
+                modes=(
+                    'update:Update package dependencies'
+                    'show-dependencies:Print the resolved dependency graph'
+                    'resolve:Resolve package dependencies'
+                    'fetch:'
+                    'edit:Put a package in editable mode'
+                    'tools-version:Manipulate tools version of the current package'
+                    'describe:Describe the current package'
+                    'clean:Delete build artifacts'
+                    'generate-completion-script:Generate completion script (Bash or ZSH)'
+                    'completion-tool:Generate completion script (generate-bash-script or generate-zsh-script)'
+                    'install-completion-script:Install completion script (Bash or ZSH)'
+                    'reset:Reset the complete cache/build directory'
+                    'resolve-tool:'
+                    'unedit:Remove a package from editable mode'
+                    'init:Initialize a new package'
+                    'generate-xcodeproj:Generates an Xcode project'
+                    'dump-package:Print parsed Package.swift as JSON'
+                )
+                _describe "mode" modes
+                ;;
+            (arg)
+                case ${words[1]} in
+                    (update)
+                        _dswift_package_update
+                        ;;
+                    (show-dependencies)
+                        _dswift_package_show-dependencies
+                        ;;
+                    (resolve)
+                        _dswift_package_resolve
+                        ;;
+                    (fetch)
+                        _dswift_package_fetch
+                        ;;
+                    (edit)
+                        _dswift_package_edit
+                        ;;
+                    (tools-version)
+                        _dswift_package_tools-version
+                        ;;
+                    (describe)
+                        _dswift_package_describe
+                        ;;
+                    (clean)
+                        _dswift_package_clean
+                        ;;
+                    (generate-completion-script)
+                        _dswift_package_generate-completion-script
+                        ;;
+                    (completion-tool)
+                        _dswift_package_completion-tool
+                        ;;
+                    (install-completion-script)
+                        _dswift_package_generate-completion-script
+                        ;;
+                    (reset)
+                        _dswift_package_reset
+                        ;;
+                    (resolve-tool)
+                        _dswift_package_resolve-tool
+                        ;;
+                    (unedit)
+                        _dswift_package_unedit
+                        ;;
+                    (init)
+                        _dswift_package_init
+                        ;;
+                    (generate-xcodeproj)
+                        _dswift_package_generate-xcodeproj
+                        ;;
+                    (dump-package)
+                        _dswift_package_dump-package
+                        ;;
+                esac
+                ;;
+        esac
+    }
+
+    _dswift_package_update() {
+        arguments=(
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_show-dependencies() {
+        arguments=(
+            "--format[text|dot|json]: :{_values '' 'text[list dependencies using text format]' 'dot[list dependencies using dot format]' 'json[list dependencies using JSON format]'}"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_resolve() {
+        arguments=(
+            ":The name of the package to resolve: "
+            "--version[The version to resolve at]:The version to resolve at: "
+            "--branch[The branch to resolve at]:The branch to resolve at: "
+            "--revision[The revision to resolve at]:The revision to resolve at: "
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_fetch() {
+        arguments=(
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_edit() {
+        arguments=(
+            ":The name of the package to edit: "
+            "--revision[The revision to edit]:The revision to edit: "
+            "--branch[The branch to create]:The branch to create: "
+            "--path[Create or use the checkout at this path]:Create or use the checkout at this path:_files"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_tools-version() {
+        arguments=(
+            "--set[Set tools version of package to the given value]:Set tools version of package to the given value: "
+            "--set-current[Set tools version of package to the current tools version in use]"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_describe() {
+        arguments=(
+            "--type[json|text]: :{_values '' 'text[describe using text format]' 'json[describe using JSON format]'}"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_clean() {
+        arguments=(
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_generate-completion-script() {
+        arguments=(
+            ": :{_values '' 'bash[generate completion script for Bourne-again shell]' 'zsh[generate completion script for Z shell]'}"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_completion-tool() {
+        arguments=(
+            ": :{_values '' 'generate-bash-script[generate completion script for Bourne-again shell]' 'generate-zsh-script[generate completion script for Z shell]'}"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_reset() {
+        arguments=(
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_resolve-tool() {
+        arguments=(
+            "--type[text|json]: :{_values '' 'text[resolve using text format]' 'json[resolve using JSON format]'}"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_unedit() {
+        arguments=(
+            ":The name of the package to unedit: "
+            "--force[Unedit the package even if it has uncommited and unpushed changes.]"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_init() {
+        arguments=(
+            "--type[empty|library|executable|system-module]: :{_values '' 'empty[generates an empty project]' 'library[generates project for a dynamic library]' 'executable[generates a project for a cli executable]' 'system-module[generates a project for a system module]'}"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_generate-xcodeproj() {
+        arguments=(
+            "--xcconfig-overrides[Path to xcconfig file]:Path to xcconfig file:_files"
+            "--enable-code-coverage[Enable code coverage in the generated project]"
+            "--output[Path where the Xcode project should be generated]:Path where the Xcode project should be generated:_files"
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_package_dump-package() {
+        arguments=(
+        )
+        _arguments $arguments && return
+    }
+
+    # Generates completions for swift test
+    #
+    # In the final compdef file, set the following file header:
+    #
+    #     #compdef _dswift_test
+    #     local context state state_descr line
+    #     typeset -A opt_args
+    _dswift_test() {
+        arguments=(
+            "-Xcc[Pass flag through to all C compiler invocations]:Pass flag through to all C compiler invocations: "
+            "-Xswiftc[Pass flag through to all Swift compiler invocations]:Pass flag through to all Swift compiler invocations: "
+            "-Xlinker[Pass flag through to all linker invocations]:Pass flag through to all linker invocations: "
+            "-Xcxx[Pass flag through to all C++ compiler invocations]:Pass flag through to all C++ compiler invocations: "
+            "(--configuration -c)"{--configuration,-c}"[Build with configuration (debug|release) ]: :{_values '' 'debug[build with DEBUG configuration]' 'release[build with RELEASE configuration]'}"
+            "--build-path[Specify build/cache directory ]:Specify build/cache directory :_files"
+            "(--chdir -C)"{--chdir,-C}"[]: :_files"
+            "--package-path[Change working directory before any other operation]:Change working directory before any other operation:_files"
+            "--enable-prefetching[]"
+            "--disable-prefetching[]"
+            "--disable-sandbox[Disable using the sandbox when executing subprocesses]"
+            "--version[]"
+            "--destination[]: :_files"
+            "(--verbose -v)"{--verbose,-v}"[Increase verbosity of informational output]"
+            "--no-static-swift-stdlib[Do not link Swift stdlib statically]"
+            "--static-swift-stdlib[Link Swift stdlib statically]"
+            "--skip-build[Skip building the test target]"
+            "(--list-tests -l)"{--list-tests,-l}"[Lists test methods in specifier format]"
+            "--parallel[Run the tests in parallel.]"
+            "(--specifier -s)"{--specifier,-s}"[]: : "
+            "--filter[Run test cases matching regular expression, Format: <test-target>.<test-case> or <test-target>.<test-case>/<test>]:Run test cases matching regular expression, Format: <test-target>.<test-case> or <test-target>.<test-case>/<test>: "
+        )
+        _arguments $arguments && return
+    }
+
+    _dswift_compiler() {
+    }
+
+    _dswift
+    """
     /// Post execution method for swift package
     static func commandPackage(_ args: [String]) throws -> Int32 {
         
@@ -143,6 +1194,7 @@ extension Commands {
         return retCode
     }
     
+    /*
     /// swift package generate-xcodeproj catcher
     private static func _commandPackageGenAutoScript(_ args: [String]) throws -> (String, Int32) {
         let task = Process()
@@ -171,7 +1223,7 @@ extension Commands {
             return (str, task.terminationStatus)
         }
         
-        if args.last == "bash" {
+        if args.last == "bash" || args.last == "generate-bash-script" {
             str = str.replacingOccurrences(of: "build run package test", with: "build rebuild run package test")
             str = str.replacingOccurrences(of: "clean generate-completion-script", with: "clean generate-completion-script install-completion-script")
             
@@ -199,7 +1251,7 @@ extension Commands {
             
             str = str.replacingOccurrences(of: "_swift", with: "_\(dswiftAppName)")
             
-        } else if args.last == "zsh" {
+        } else if args.last == "zsh" || args.last == "generate-zsh-script" {
             str = str.replacingOccurrences(of: "#compdef swift", with: "#compdef \(dswiftAppName)")
             str = str.replacingOccurrences(of: "                'build:build sources into binary products'",
                                            with: "                'build:build sources into binary products'\n                'rebuild:rebuild \(dswiftAppName) files then build sources into binary products'")
@@ -240,11 +1292,36 @@ extension Commands {
         print(r.0)
         return r.1
     }
+   */
+    
+    /// swift package generate-xcodeproj catcher
+    private static func commandPackageGenAutoScript(_ args: [String]) throws -> Int32 {
+        if args.last == "bash" || args.last == "generate-bash-script" {
+            print(BAHS_AUTO_COMPLETE)
+            return 0
+        } else if args.last == "zsh" || args.last == "generate-zsh-script" {
+            print(ZSH_AUTO_COMPLETE)
+            return 0
+        } else if args.last == "--help" {
+            let msg: String = """
+            OVERVIEW: Generate completion script (Bash or ZSH)
+
+            COMMANDS:
+              flavor   Shell flavor (bash or zsh)
+            """
+            print(msg)
+            return 0
+        } else {
+            errPrint("error: unknown value '\(args.last!)' for argument flavor; use --help to print usage")
+            return 1
+        }
+    }
+    
     
     /// swift package generate-xcodeproj catcher
     private static func commandPackageInstallAutoScript(_ args: [String]) throws -> Int32 {
         
-        if args.last == "bash" {
+        if args.last == "bash" || args.last == "generate-bash-script"  {
             var bashProfile: SHConfigFile
             do { bashProfile = try SHConfigFile("~/.bash_profile") }
             catch {
@@ -273,7 +1350,7 @@ extension Commands {
             print("Autocomplete script installed.  Please run source ~/.bash_profile")
             
             return 0
-        } else if args.last == "zsh" {
+        } else if args.last == "zsh" || args.last == "generate-zsh-script" {
             
             
             let zshFolderPath: String = NSString(string: "~/.zsh").expandingTildeInPath
@@ -291,14 +1368,7 @@ extension Commands {
                 }
             }
             
-            let zshScript = try _commandPackageGenAutoScript(["package", "generate-completion-script", "zsh"])
-            guard zshScript.1 == 0 else {
-                errPrint("An error occured while trying to generate script")
-                errPrint(zshScript.0)
-                return zshScript.1
-            }
-            
-            do { try zshScript.0.write(toFile: zshProfilePath, atomically: true, encoding: .utf8) }
+            do { try ZSH_AUTO_COMPLETE.write(toFile: zshProfilePath, atomically: true, encoding: .utf8) }
             catch {
                 errPrint("Unable to save ~/.zsh/_\(dswiftAppName)")
                 return 1
