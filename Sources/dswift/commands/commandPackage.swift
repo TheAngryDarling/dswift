@@ -10,7 +10,7 @@ import XcodeProj
 import PBXProj
 
 
-fileprivate struct SHConfigFile {
+fileprivate struct StringFile {
     private let path: String
     private var content: String = ""
     private var encoding: String.Encoding = .utf8
@@ -31,7 +31,7 @@ fileprivate struct SHConfigFile {
         return self.content.contains(element)
     }
     
-    public static func +=(lhs: inout SHConfigFile, rhs: String) {
+    public static func +=(lhs: inout StringFile, rhs: String) {
         lhs.content += rhs
     }
 }
@@ -1322,8 +1322,8 @@ extension Commands {
     private static func commandPackageInstallAutoScript(_ args: [String]) throws -> Int32 {
         
         if args.last == "bash" || args.last == "generate-bash-script"  {
-            var bashProfile: SHConfigFile
-            do { bashProfile = try SHConfigFile("~/.bash_profile") }
+            var bashProfile: StringFile
+            do { bashProfile = try StringFile("~/.bash_profile") }
             catch {
                 errPrint("Unable to load ~/.bash_profile")
                 return 1
@@ -1375,8 +1375,8 @@ extension Commands {
             }
             
             
-            var zshProfile: SHConfigFile
-            do { zshProfile = try SHConfigFile("~/.zshrc") }
+            var zshProfile: StringFile
+            do { zshProfile = try StringFile("~/.zshrc") }
             catch {
                 errPrint("Unable to load ~/.zshrc")
                 return 1
@@ -1462,6 +1462,18 @@ extension Commands {
         
         /// Setup license file
         try settings.license.write(to: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("LICENSE.md"))
+        
+        let gitIgnoreURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".gitignore")
+        if FileManager.default.fileExists(atPath: gitIgnoreURL.path) {
+            do {
+                var file = try StringFile(gitIgnoreURL.path)
+                if !file.contains("Package.resolved") {
+                    file += "\nPackage.resolved"
+                    
+                    try file.save()
+                }
+            } catch { }
+        }
         
         return retCode
     }
