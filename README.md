@@ -53,7 +53,7 @@ import Foundation
 
 public class Example {
     public func testFunc0() {
-        print("This is function #0)
+        print("This is function #0")
     }
     public func testFunc1() {
         print("This is function #1")
