@@ -1,4 +1,5 @@
 import Foundation
+import VersionKit
 
 let dSwiftVersion: String = "1.0.0"
 let dSwiftModuleName: String = "Dynamic Swift"
@@ -20,6 +21,7 @@ var settings: DSwiftSettings = {
         return DSwiftSettings()
     }
 }()
+let swiftVersion: Version.SingleVersion
 
 //var swiftPath: String = "/usr/bin/swift"
 
@@ -66,6 +68,45 @@ for (i, p) in arguments.enumerated() {
 if let idx = dswiftParams.firstIndex(of: "--swiftPath"), idx < dswiftParams.count {
     settings.swiftPath = dswiftParams[idx + 1]
 }
+
+
+let task = Process()
+
+task.executable = URL(fileURLWithPath: settings.swiftPath)
+task.arguments = ["--version"]
+
+let pipe = Pipe()
+defer {
+    pipe.fileHandleForReading.closeFile()
+    pipe.fileHandleForWriting.closeFile()
+}
+task.standardOutput = pipe
+task.standardError = pipe
+
+try! task.execute()
+task.waitUntilExit()
+
+
+let data = pipe.fileHandleForReading.readDataToEndOfFile()
+let swiftVersionOutput = String(data: data, encoding: .utf8)!
+var swiftVersionLine = swiftVersionOutput.split(separator: "\n").map(String.init).first!
+guard let r = swiftVersionLine.range(of: "version ") else {
+    errPrint("Unable to determine swift version from '\(swiftVersionLine)'")
+    exit(1)
+}
+
+swiftVersionLine = String(swiftVersionLine.suffix(from: r.upperBound))
+
+if let r = swiftVersionLine.range(of: " (") {
+    swiftVersionLine = String(swiftVersionLine.prefix(upTo: r.lowerBound))
+}
+
+guard let v = Version.SingleVersion(swiftVersionLine) else {
+    errPrint("Unable to determine swift version from '\(swiftVersionLine)'")
+    exit(1)
+}
+
+swiftVersion = v
 
 guard let swiftCommand = swiftParams.first else {
     print("Missing command")
