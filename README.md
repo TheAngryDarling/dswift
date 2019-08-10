@@ -2,6 +2,8 @@
 
 Dynamic Swift is a wrapper application for working with SwiftPM projects.  The primary purpose of this application is to allow developers to write code in swift that generates code (much like how other projects may use Python, Perl, or some other scripting language to generate code), this way its all in the same language.
 
+    Note: This project has a minimun requirement of Swift 4.0 
+
     Note: When adding new dswift files manually through Xcode, add a new Swift file making sure to set the proper target.  After the file is created then re-name the extension to .dswift.  Xcode won't allow you to set the target  afterwards if the file extension is not a known compilable file.
 
     The other way to add missing dswift files to the Xcode Project is to re-generate the project file with the following command: dswift package generate-xcodeproj
