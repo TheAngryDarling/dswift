@@ -10,33 +10,6 @@ import XcodeProj
 import PBXProj
 
 
-fileprivate struct StringFile {
-    private let path: String
-    private var content: String = ""
-    private var encoding: String.Encoding = .utf8
-    
-    public init(_ path: String) throws {
-        let pth = NSString(string: path).expandingTildeInPath
-        self.path = pth
-        if FileManager.default.fileExists(atPath: pth) {
-            self.content = try String(contentsOfFile: pth, usedEncoding: &self.encoding)
-        }
-    }
-    
-    public func save() throws {
-        try self.content.write(toFile: self.path, atomically: true, encoding: self.encoding)
-    }
-    
-    public func contains(_ element: String) -> Bool {
-        return self.content.contains(element)
-    }
-    
-    public static func +=(lhs: inout StringFile, rhs: String) {
-        lhs.content += rhs
-    }
-}
-
-
 
 extension Commands {
     
@@ -1468,7 +1441,8 @@ extension Commands {
             do {
                 var file = try StringFile(gitIgnoreURL.path)
                 if !file.contains("Package.resolved") {
-                    file += "\nPackage.resolved"
+                    if !file.hasSuffix("\n") { file += "\n" }
+                    file += "Package.resolved"
                     
                     try file.save()
                 }
