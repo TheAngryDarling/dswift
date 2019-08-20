@@ -11,11 +11,14 @@ class DynamicSourceCodeBuilder {
     
     enum Errors: Error, CustomStringConvertible {
         case missingClosingBlock(closing: String, for: String, in: String, onLine: Int)
+        case missingOpeningBlock(for: String, in: String, onLine: Int)
         
         public var description: String {
             switch self {
             case .missingClosingBlock(closing: let closing, for: let opening, in: let path, onLine: let line):
                 return "\(path): Missing closing '\(closing)' for '\(opening)' starting on line \(line)"
+            case .missingOpeningBlock(for: let closing, in: let path, onLine: let line):
+                return "\(path): Missing opening block for '\(closing)' finishing on line \(line)"
             }
         }
     }
@@ -160,7 +163,17 @@ class DynamicSourceCodeBuilder {
             //If we are at the end index, we are done
             guard startingAt !=  string.endIndex else { return nil }
             // Looks for opening block brace.  If not found we return the whole string as a text block
-            guard let startBlockIndex: String.Index = string.range(of: self.opening, range:startingAt..<string.endIndex)?.lowerBound else {
+            let stBlockIndex: String.Index? = string.range(of: self.opening, range:startingAt..<string.endIndex)?.lowerBound
+            
+            if let closeBlockIndex: String.Index = string.range(of: self.closing, range:startingAt..<string.endIndex)?.lowerBound {
+                if stBlockIndex == nil || closeBlockIndex < stBlockIndex! {
+                    let line = string.countOccurrences(of: "\n",
+                                                       inRange: string.startIndex..<closeBlockIndex)
+                    throw Errors.missingOpeningBlock(for: self.closing, in: file, onLine: line + 1)
+                }
+            }
+            
+            guard let startBlockIndex = stBlockIndex else {
                 return CodeBlock(range: startingAt..<string.endIndex,
                                  type: .text,
                                  string: String(string[startingAt..<string.endIndex]))
