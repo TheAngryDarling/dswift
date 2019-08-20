@@ -1,7 +1,7 @@
 import Foundation
 import VersionKit
 
-let dSwiftVersion: String = "1.0.0"
+let dSwiftVersion: String = "1.0.1"
 let dSwiftModuleName: String = "Dynamic Swift"
 let dswiftAppName: String = ProcessInfo.processInfo.arguments.first!.components(separatedBy: "/").last!
 let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
