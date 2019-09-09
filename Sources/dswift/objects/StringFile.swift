@@ -589,14 +589,14 @@ public extension StringFile {
     ///
     /// - Parameter element: The element to find in the sequence.
     /// - Returns: true if the element was found in the sequence; otherwise, false.
-    public func contains(_ element: Character) -> Bool {
+    func contains(_ element: Character) -> Bool {
         return self.content.contains(element)
     }
     /// Returns a Boolean value indicating whether the sequence contains an element that satisfies the given predicate.
     ///
     /// - Parameter predicate: A closure that takes an element of the sequence as its argument and returns a Boolean value that indicates whether the passed element represents a match.
     /// - Returns: true if the sequence contains an element that satisfies predicate; otherwise, false.
-    public func contains(where predicate: (Character) throws -> Bool) rethrows -> Bool {
+    func contains(where predicate: (Character) throws -> Bool) rethrows -> Bool {
         return try self.content.contains(where: predicate)
     }
     /// Returns the first element of the sequence that satisfies the given
@@ -618,7 +618,7 @@ public extension StringFile {
     ///   or `nil` if there is no element that satisfies `predicate`.
     ///
     /// - Complexity: O(*n*), where *n* is the length of the sequence.
-    public func first(where predicate: (Character) throws -> Bool) rethrows -> Character? {
+    func first(where predicate: (Character) throws -> Bool) rethrows -> Character? {
         return try self.content.first(where: predicate)
     }
     
@@ -626,7 +626,7 @@ public extension StringFile {
     ///
     /// - Parameter element: An element to search for in the collection.
     /// - Returns: The first index where element is found. If element is not found in the collection, returns nil.
-    public func index(of element: Character) -> String.Index? {
+    func index(of element: Character) -> String.Index? {
         return self.content.index(of: element)
     }
     
@@ -634,7 +634,7 @@ public extension StringFile {
     ///
     /// - Parameter predicate: A closure that takes an element as its argument and returns a Boolean value that indicates whether the passed element represents a match.
     /// - Returns: The index of the first element for which predicate returns true. If no elements in the collection satisfy the given predicate, returns nil.
-    public  func index(where predicate: (Character) throws -> Bool) rethrows -> String.Index? {
+    func index(where predicate: (Character) throws -> Bool) rethrows -> String.Index? {
         return try self.content.index(where: predicate)
     }
 }
