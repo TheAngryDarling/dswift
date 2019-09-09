@@ -1,0 +1,67 @@
+#/usr/bash
+
+if ! [ -x "$(command -v swift)" ]; then
+    echo "Unable to locate swift" >&2
+    exit 1
+fi
+DSWIFT_FOLDER="/usr/bin"
+
+if [ "$(uname)" == "Darwin" ]; then
+    DSWIFT_FOLDER="/usr/local/bin"
+fi
+
+DSWIFT_FILE="$DSWIFT_FOLDER/dswift"
+DSWIFT_SHA_FILE="$DSWIFT_FOLDER/dswift.sha"
+
+canUpdate=0
+latestSHA=""
+updateInstalledWord="updated"
+if [ ! -f $DSWIFT_FILE ]; then
+    canUpdate=1
+    updateInstalledWord="installed"
+else
+    if [ -f $DSWIFT_SHA_FILE ]; then
+        latestSHA=$(cat $DSWIFT_SHA_FILE)
+    fi
+    
+    newSHA=$(curl -s https://api.github.com/repos/TheAngryDarling/dswift/git/refs/tags/latest | grep sha | sed -e 's/"sha": //g' -e 's/",//g' -e 's/"//g' -e 's/ //g')
+    
+    if [ "$latestSHA" != "$newSHA" ]; then
+        canUpdate=1
+    fi
+fi
+
+if [ "$canUpdate" == "1" ]; then
+    if [ "$(uname)" == "Darwin" ]; then
+        if [ "$USER" != "root" ]; then
+            echo "This application must be run with privileges.  usage: sudo dswift-update" >&2
+            exit 1
+        fi
+    fi
+    newSHA=$(curl -s https://api.github.com/repos/TheAngryDarling/dswift/git/refs/tags/latest | grep sha | sed -e 's/"sha": //g' -e 's/",//g' -e 's/"//g' -e 's/ //g')
+    curdir=$(pwd)
+    if [ -f /tmp/dswift ]; then
+        rm -r -f /tmp/dswift
+    fi
+
+    cd /tmp \
+    && echo "Downloading dswift source code ..." \
+    && git -c advice.detachedHead=false clone --quiet --branch latest https://github.com/TheAngryDarling/dswift.git 1>/dev/null \
+    && cd /tmp/dswift \
+    && echo "Compiling source code ..." \
+    && swift build -c release 1>/dev/null \
+    && echo "Installing dswift ..." \
+    && cp $(swift build -c release --show-bin-path)/dswift $DSWIFT_FILE \
+    && chmod -R o+r $DSWIFT_FILE \
+    && cd .. \
+    && echo "Removing source code ..." \
+    && rm -r -f /tmp/dswift \
+    && echo "Installing auto-complete scripts ..." \
+    && dswift package install-completion-script bash > /dev/null \
+    && dswift package install-completion-script zsh > /dev/null \
+    && cd $curdir \
+    && echo $newSHA > $DSWIFT_SHA_FILE \
+    && echo "dswift has successfully been $updateInstalledWord"
+else
+    echo "No updates available"
+fi
