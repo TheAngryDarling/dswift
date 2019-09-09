@@ -1529,16 +1529,32 @@ extension Commands {
             }
         }
         
-        let additionalFiles: [String] = ["LICENSE.md", "README.md"]
+        let additionalFiles: [String] = ["LICENSE.md", "README.md", "Tests/LinuxMain.swift"]
         
         for file in additionalFiles {
-            if let xcodeFile = children.first(where: { $0.lastPathComponent == file }) {
-                try xcodeProject.resources.addExisting(xcodeFile,
-                                                       atLocation: .index(indexAfterLastPackagFile),
-                                                       savePBXFile: false)
-                indexAfterLastPackagFile += 1
+            let filePath = xcodeProject.projectFolder.appendingFileComponent(file)
+            if try xcodeProject.fsProvider.itemExists(at: filePath) {
+                if let idx = file.lastIndex(of: "/") { // If we find that the file is in a sub folder we must find the sub group
+                    let groupPath = String(file[..<idx])
+                    guard let grp = xcodeProject.resources.group(atPath: groupPath) else {
+                        errPrint("Unable to find group '\(groupPath)' to add file \(file.lastPathComponent)")
+                        continue
+                    }
+                   try grp.addExisting(filePath, atLocation: .end, savePBXFile: false)
+                } else {
+                    try xcodeProject.resources.addExisting(filePath,
+                                                           atLocation: .index(indexAfterLastPackagFile),
+                                                           savePBXFile: false)
+                    indexAfterLastPackagFile += 1
+                }
+                
+                
+                
             }
         }
+        
+        
+        
         
         //debugPrint(xcodeProject)
         try xcodeProject.save()
