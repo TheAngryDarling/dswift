@@ -108,6 +108,7 @@ compinit
 
 * **[Xcode Project](https://github.com/TheAngryDarling/SwiftXcodeProj)** - A collection of classes, methods, and properties for reading/writing Xcode projects
 * **[Swift Patches](https://github.com/TheAngryDarling/SwiftPatches)** - A collection of classes, methods, and properties to fill in the gaps on older versions of swift so witing code for multiple versions of Swift is a little easier.
+* **[Version Kit](https://github.com/TheAngryDarling/SwiftVersionKit)** - Provides the ability to store, parse, edit, and compare version strings
 
 ## Author
 
