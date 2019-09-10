@@ -1,5 +1,5 @@
 #/usr/bash
-
+# make sure we have swift installed otherwise we can't build the program
 if ! [ -x "$(command -v swift)" ]; then
     echo "Unable to locate swift" >&2
     exit 1
@@ -7,46 +7,64 @@ fi
 DSWIFT_FOLDER="/usr/bin"
 
 if [ "$(uname)" == "Darwin" ]; then
+    # if we are on Mac, we must change the bin folder, we can't copy into /usr/bin/ so we must copy into /usr/local/bin/
     DSWIFT_FOLDER="/usr/local/bin"
 fi
 
 DSWIFT_FILE="$DSWIFT_FOLDER/dswift"
 DSWIFT_SHA_FILE="$DSWIFT_FOLDER/dswift.sha"
+DSWIFT_REPOSITORY="https://github.com/TheAngryDarling/dswift"
+DSWIFT_BRANCH_LATEST="latest"
+DSWIFT_REF_TAG="refs/tags/$DSWIFT_BRANCH_LATEST"
+DSWIFT_SED_REF_TAG="$(echo $DSWIFT_REF_TAG | sed 's/\//\\\//g')"
 
 canUpdate=0
-latestSHA=""
+currentSHA=""
 updateInstalledWord="updated"
+
+# get the sha from dswift:latest on github
+latestSHA=$(git ls-remote --refs $DSWIFT_REPOSITORY $DSWIFT_REF_TAG | sed -e "s/$DSWIFT_SED_REF_TAG//g" -e 's/[[:space:]]//g')
+
+if [ "$latestSHA" == "" ]; then
+    # if we were unable to get the sha from github we should error out
+    echo "Unable to find sha of dswift:latest" >&2
+    exit 1
+fi
+
 if [ ! -f $DSWIFT_FILE ]; then
     canUpdate=1
     updateInstalledWord="installed"
 else
     if [ -f $DSWIFT_SHA_FILE ]; then
-        latestSHA=$(cat $DSWIFT_SHA_FILE)
+        # get the sha for the current local version of dswift (from dswift.sha)
+        currentSHA=$(cat $DSWIFT_SHA_FILE)
     fi
-    
-    newSHA=$(curl -s https://api.github.com/repos/TheAngryDarling/dswift/git/refs/tags/latest | grep sha | sed -e 's/"sha": //g' -e 's/",//g' -e 's/"//g' -e 's/ //g')
-    
-    if [ "$latestSHA" != "$newSHA" ]; then
+
+    if [ "$currentSHA" != "$latestSHA" ]; then
+        # if the local sha and the remote sha don't match we set the can update flag
         canUpdate=1
     fi
 fi
 
 if [ "$canUpdate" == "1" ]; then
     if [ "$(uname)" == "Darwin" ]; then
+        # if we are on Mac, we must run with privileges to copy into /usr/local/bin/
         if [ "$USER" != "root" ]; then
             echo "An update is available but this application must be run with privileges to install.  Run using sudo: sudo dswift-update" >&2
             exit 1
         fi
     fi
-    newSHA=$(curl -s https://api.github.com/repos/TheAngryDarling/dswift/git/refs/tags/latest | grep sha | sed -e 's/"sha": //g' -e 's/",//g' -e 's/"//g' -e 's/ //g')
+
+    # save current dir so we can come back to it at the end
     curdir=$(pwd)
     if [ -f /tmp/dswift ]; then
+        # remove source code folder from temp if it already exists.  So git won't error when trying to download source code
         rm -r -f /tmp/dswift
     fi
 
     cd /tmp \
     && echo "Downloading dswift source code ..." \
-    && git -c advice.detachedHead=false clone --quiet --branch latest https://github.com/TheAngryDarling/dswift.git 1>/dev/null \
+    && git -c advice.detachedHead=false clone --quiet --branch $DSWIFT_BRANCH_LATEST $DSWIFT_REPOSITORY.git 1>/dev/null \
     && cd /tmp/dswift \
     && echo "Compiling source code ..." \
     && swift build -c release 1>/dev/null \
@@ -60,7 +78,7 @@ if [ "$canUpdate" == "1" ]; then
     && dswift package install-completion-script bash > /dev/null \
     && dswift package install-completion-script zsh > /dev/null \
     && cd $curdir \
-    && echo $newSHA > $DSWIFT_SHA_FILE \
+    && echo $latestSHA > $DSWIFT_SHA_FILE \
     && echo "dswift has successfully been $updateInstalledWord"
 else
     echo "No updates available"
