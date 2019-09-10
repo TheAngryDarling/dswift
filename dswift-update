@@ -34,7 +34,7 @@ fi
 if [ "$canUpdate" == "1" ]; then
     if [ "$(uname)" == "Darwin" ]; then
         if [ "$USER" != "root" ]; then
-            echo "This application must be run with privileges.  usage: sudo dswift-update" >&2
+            echo "An update is available but this application must be run with privileges to install.  Run using sudo: sudo dswift-update" >&2
             exit 1
         fi
     fi
