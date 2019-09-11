@@ -62,14 +62,16 @@ if [ "$canUpdate" == "1" ]; then
         rm -r -f /tmp/dswift
     fi
 
+    [[ -z "${NO_DSWIFT_PARAMS}" ]] && swiftBuildArgs='-c release' || swiftBuildArgs="-c release -Xswiftc -DNO_DSWIFT_PARAMS"
+
     cd /tmp \
     && echo "Downloading dswift source code ..." \
     && git -c advice.detachedHead=false clone --quiet --branch $DSWIFT_BRANCH_LATEST $DSWIFT_REPOSITORY.git 1>/dev/null \
     && cd /tmp/dswift \
     && echo "Compiling source code ..." \
-    && swift build -c release 1>/dev/null \
+    && swift build $swiftBuildArgs 1>/dev/null \
     && echo "Installing dswift ..." \
-    && cp $(swift build -c release --show-bin-path)/dswift $DSWIFT_FILE \
+    && cp $(swift build $swiftBuildArgs --show-bin-path)/dswift $DSWIFT_FILE \
     && chmod -R o+r $DSWIFT_FILE \
     && cd .. \
     && echo "Removing source code ..." \
