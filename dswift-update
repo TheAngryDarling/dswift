@@ -62,7 +62,13 @@ if [ "$canUpdate" == "1" ]; then
         rm -r -f /tmp/dswift
     fi
 
-    [[ -z "${NO_DSWIFT_PARAMS}" ]] && swiftBuildArgs='-c release' || swiftBuildArgs="-c release -Xswiftc -DNO_DSWIFT_PARAMS"
+    swiftBuildArgs="-c release"
+    if [ ! -z "${NO_DSWIFT_PARAMS}" ]; then
+        swiftBuildArgs="$swiftBuildArgs -Xswiftc -DNO_DSWIFT_PARAMS"
+    fi
+    if [ ! -z "${ENABLE_ENV_USER_DETAILS}" ]; then
+        swiftBuildArgs="$swiftBuildArgs -Xswiftc -DENABLE_ENV_USER_DETAILS"
+    fi
 
     cd /tmp \
     && echo "Downloading dswift source code ..." \

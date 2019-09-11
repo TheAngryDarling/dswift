@@ -1,7 +1,12 @@
 import Foundation
 import VersionKit
+import XcodeProj
 
-let dSwiftVersion: String = "1.0.4"
+#if ENABLE_ENV_USER_DETAILS
+// tells XcodeProjectBuilders.UserDetails to check env for REAL_USER_NAME and REAL_DISPLAY_NAME
+XcodeProjectBuilders.UserDetails.supportEnvUserName = true
+#endif
+let dSwiftVersion: String = "1.0.5"
 let dSwiftModuleName: String = "Dynamic Swift"
 let dswiftAppName: String = ProcessInfo.processInfo.arguments.first!.components(separatedBy: "/").last!
 let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
