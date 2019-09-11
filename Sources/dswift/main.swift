@@ -1,7 +1,7 @@
 import Foundation
 import VersionKit
 
-let dSwiftVersion: String = "1.0.2"
+let dSwiftVersion: String = "1.0.4"
 let dSwiftModuleName: String = "Dynamic Swift"
 let dswiftAppName: String = ProcessInfo.processInfo.arguments.first!.components(separatedBy: "/").last!
 let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
@@ -58,16 +58,23 @@ var isInDSwiftParamSection: Bool = false
 var arguments = ProcessInfo.processInfo.arguments
 arguments.removeFirst() //First parameter is the application path
 
-for (i, p) in arguments.enumerated() {
-    if i == 0 && p == beginDSwiftSection { isInDSwiftParamSection = true }
-    else if (i > 0 && p == endDSwiftSection) { isInDSwiftParamSection = false }
-    else if isInDSwiftParamSection { dswiftParams.append(p) }
-    else { swiftParams.append(p) }
-}
+#if NO_DSWIFT_PARAMS
+    // If no dswift paramters supported, all parameters must be for swift
+    swiftParams = arguments
+#else
 
-if let idx = dswiftParams.firstIndex(of: "--swiftPath"), idx < dswiftParams.count {
-    settings.swiftPath = dswiftParams[idx + 1]
-}
+    for (i, p) in arguments.enumerated() {
+        if i == 0 && p == beginDSwiftSection { isInDSwiftParamSection = true }
+        else if (i > 0 && p == endDSwiftSection) { isInDSwiftParamSection = false }
+        else if isInDSwiftParamSection { dswiftParams.append(p) }
+        else { swiftParams.append(p) }
+    }
+
+    if let idx = dswiftParams.firstIndex(of: "--swiftPath"), idx < dswiftParams.count {
+        settings.swiftPath = dswiftParams[idx + 1]
+    }
+
+#endif
 
 
 let task = Process()
