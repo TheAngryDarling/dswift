@@ -17,6 +17,7 @@ struct DSwiftSettings {
         case readme
         case regenerateXcodeProject
         case repository
+        case authorName
     }
     
     enum FileResourceSorting: String, Codable {
@@ -162,6 +163,8 @@ struct DSwiftSettings {
     let regenerateXcodeProject: Bool
     /// Developer repository information
     let repository: Repository?
+    // Author Name for use in README.md file when generated
+    let authorName: String?
     
     public init() {
         self.swiftPath = DSwiftSettings.defaultSwiftPath
@@ -170,6 +173,7 @@ struct DSwiftSettings {
         self.readme = ReadMe()
         self.regenerateXcodeProject = false
         self.repository = nil
+        self.authorName = nil
     }
 }
 
@@ -182,6 +186,7 @@ extension DSwiftSettings: Codable {
         self.readme = try container.decodeIfPresent(ReadMe.self, forKey: .readme) ?? ReadMe()
         self.regenerateXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .regenerateXcodeProject) ?? false
         self.repository = try container.decodeIfPresent(Repository.self, forKey: .repository)
+        self.authorName = try container.decodeIfPresent(String.self, forKey: .authorName)
         
     }
     
@@ -226,6 +231,7 @@ extension DSwiftSettings: Codable {
         if !self.readme.isEmpty { try container.encode(self.readme, forKey: .readme) }
         try container.encode(self.regenerateXcodeProject, forKey: .regenerateXcodeProject )
         try container.encodeIfPresent(self.repository, forKey: .repository)
+        try container.encodeIfPresent(self.authorName, forKey: .authorName)
     }
 }
 
@@ -464,7 +470,7 @@ extension DSwiftSettings.ReadMe: Codable {
             readmeContents += "## Usage\n\n"
             readmeContents += "## Dependencies\n\n"
             readmeContents += "## Author\n\n"
-            readmeContents += "* **\(XcodeProjectBuilders.UserDetails().displayName!)** - *Initial work* "
+            readmeContents += "* **\(settings.authorName ?? XcodeProjectBuilders.UserDetails().displayName!)** - *Initial work* "
             if let r = settings.repository {
                 readmeContents += " - " + r.readMEDescription
             }

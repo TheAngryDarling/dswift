@@ -6,9 +6,10 @@
 //
 
 import Foundation
+import XcodeProj
 
 extension Commands {
-    private static let defaultCofig: String = """
+    private static let defaultConfig: String = """
 {
     // The default swift path to use unless specificed in the command line
     "swiftPath": "/usr/bin/swift",
@@ -41,6 +42,10 @@ extension Commands {
     //      "sysMod": "{path to read me file for all system-module projects}" OR "generated",
     // },
 
+    // Author Name.  Used when generated README.me as the author name
+    // If author name is not set, the application wil try and use env variable REAL_DISPLAY_NAME if set otherwise use the current use display name from the system
+    // "authorName": "YOUR NAME HERE",
+
     // Regenerate Xcode Project (If already exists) when package is updated
     "regenerateXcodeProject": false,
 
@@ -52,7 +57,7 @@ extension Commands {
     //      "serviceName": "GitHub",
     //      "serviceURL": "https://github.com/YOUR REPOSITORY",
     //      "repositoryName": "YOUR REPOSITORY NAME",
-    // }
+    // }    
 }
 """
     /// Method for setting up default dswift configuration
@@ -64,7 +69,11 @@ extension Commands {
                 return 0
             }
             
-            try defaultCofig.write(to: url, atomically: true, encoding: .utf8)
+            var configStr = defaultConfig
+            if let userDisplayName = XcodeProjectBuilders.UserDetails().displayName, userDisplayName != "root" {
+                configStr = configStr.replacingOccurrences(of: "// \"authorName\": \"YOUR NAME HERE\",", with: "\"authorName\": \"\(userDisplayName)\",")
+            }
+            try configStr.write(to: url, atomically: true, encoding: .utf8)
             
             return 0
             
