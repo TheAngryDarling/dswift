@@ -32,14 +32,18 @@ extension Commands {
         print("\tRemoves all generated files, then calls swift package clean")
         print("Usage: \(dswiftAppName) package reset")
         print("\tRemoves all generated files, then calls swift package reset")
+        print("")
         
-        print("")
-        print("\(dSwiftModuleName) Specific Parameter Section:")
-        print("\(dSwiftModuleName) section mut begin with \(beginDSwiftSection) and be the first parameter when adding \(dSwiftModuleName) parameters.  To close the \(dSwiftModuleName) section, end with \(endDSwiftSection)")
-        print("")
-        print("Usage: \(dswiftAppName) --- --swiftPath {path to swift cli to use} --- {rest of commands from above}")
-        print("\tSpecifies which swift cli to use when executing swift commands")
-        print("")
+        #if NO_DSWIFT_PARAMS
+        // If no dswift paramters supported, hide its usage section
+        #else
+            print("\(dSwiftModuleName) Specific Parameter Section:")
+            print("\(dSwiftModuleName) section mut begin with \(beginDSwiftSection) and be the first parameter when adding \(dSwiftModuleName) parameters.  To close the \(dSwiftModuleName) section, end with \(endDSwiftSection)")
+            print("")
+            print("Usage: \(dswiftAppName) --- --swiftPath {path to swift cli to use} --- {rest of commands from above}")
+            print("\tSpecifies which swift cli to use when executing swift commands")
+            print("")
+        #endif
         
         return 0
     }
