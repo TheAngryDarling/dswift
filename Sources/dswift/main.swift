@@ -6,13 +6,17 @@ import XcodeProj
 // tells XcodeProjectBuilders.UserDetails to check env for REAL_USER_NAME and REAL_DISPLAY_NAME
 XcodeProjectBuilders.UserDetails.supportEnvUserName = true
 #endif
-let dSwiftVersion: String = "1.0.5"
+let dSwiftVersion: String = "1.0.6"
 let dSwiftModuleName: String = "Dynamic Swift"
 let dswiftAppName: String = ProcessInfo.processInfo.arguments.first!.components(separatedBy: "/").last!
 let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
-let dswiftFileExtension: String = "dswift"
+//let dswiftFileExtension: String = "dswift"
+//let dswiftStaticFileExtension: String = "dswift_static"
+//let dswiftSupportedFileExtensions: [String] = [dswiftFileExtension, dswiftStaticFileExtension]
 let dswiftSettingsFilePath: String = "~/.\(dswiftAppName).config"
 let isRunningFromXcode: Bool = (ProcessInfo.processInfo.environment["XCODE_VERSION_ACTUAL"] != nil)
+
+
 
 var settings: DSwiftSettings = {
     let settingsPath = NSString(string: dswiftSettingsFilePath).standardizingPath
@@ -26,6 +30,13 @@ var settings: DSwiftSettings = {
         return DSwiftSettings()
     }
 }()
+
+let generator: GroupGenerator = try GroupGenerator(swiftPath: settings.swiftPath,
+                                                   dSwiftModuleName: dSwiftModuleName,
+                                                   dSwiftURL: dSwiftURL,
+                                                   print: Commands.generatorPrint,
+                                                   verbosePrint: Commands.generatorVerbosePrint,
+                                                   debugPrint: Commands.generatorDebugPrint)
 let swiftVersion: Version.SingleVersion
 
 //var swiftPath: String = "/usr/bin/swift"
