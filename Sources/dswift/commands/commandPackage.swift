@@ -1101,14 +1101,16 @@ extension Commands {
             
             verbosePrint("Looking at target: \(t.name)")
             let targetPath = URL(fileURLWithPath: t.path, isDirectory: true)
-            try cleanFolder(fileExtension: dswiftFileExtension, folder: targetPath)
+            
+            try generator.clean(folder: targetPath)
+            //try cleanFolder(fileExtensions: GroupGenerator.supportedExtensions, folder: targetPath)
             
         }
     }
     
     
     /// Clean a folder of any swift files build from dswift
-    static func cleanFolder(fileExtension: String, folder: URL) throws {
+    /*static func cleanFolder(fileExtensions: [String], folder: URL) throws {
         //verbosePrint("Looking at path: \(folder.path)")
         let children = try FileManager.default.contentsOfDirectory(at: folder,
                                                                    includingPropertiesForKeys: nil)
@@ -1122,7 +1124,7 @@ extension Commands {
                 }
                 guard child.isPathFile else { continue }
                 
-                if child.pathExtension.lowercased() == fileExtension.lowercased() {
+                if fileExtensions.contains(child.pathExtension.lowercased()) {
                     let generatedFile = child.deletingPathExtension().appendingPathExtension("swift")
                     if let gR = try? generatedFile.checkResourceIsReachable(), gR {
                         
@@ -1144,9 +1146,9 @@ extension Commands {
         }
         
         for subFolder in folders {
-            try cleanFolder(fileExtension: fileExtension, folder: subFolder)
+            try cleanFolder(fileExtensions: fileExtensions, folder: subFolder)
         }
-    }
+    }*/
     
     /// swift package clean catcher
     private static func commandPackageClean(_ args: [String], _ retCode: Int32) throws -> Int32 {
@@ -1166,106 +1168,6 @@ extension Commands {
         try cleanDSwiftBuilds()
         return retCode
     }
-    
-    /*
-    /// swift package generate-xcodeproj catcher
-    private static func _commandPackageGenAutoScript(_ args: [String]) throws -> (String, Int32) {
-        let task = Process()
-        
-        task.executable = URL(fileURLWithPath: settings.swiftPath)
-        task.arguments = args
-        
-        let pipe = Pipe()
-        defer {
-            pipe.fileHandleForReading.closeFile()
-            pipe.fileHandleForWriting.closeFile()
-        }
-        //#if os(macOS)
-        //task.standardInput = FileHandle.nullDevice
-        //#endif
-        task.standardOutput = pipe
-        task.standardError = pipe
-        
-        try! task.execute()
-        task.waitUntilExit()
-        
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        var str = String(data: data, encoding: .utf8)!
-        
-        guard task.terminationStatus == 0 else {
-            return (str, task.terminationStatus)
-        }
-        
-        if args.last == "bash" || args.last == "generate-bash-script" {
-            str = str.replacingOccurrences(of: "build run package test", with: "build rebuild run package test")
-            str = str.replacingOccurrences(of: "clean generate-completion-script", with: "clean generate-completion-script install-completion-script")
-            
-            let checkBuildBlock: String = "(build)"
-            let replaceBuildBlock: String = """
-            (build)
-                        _swift_build 2
-                        ;;
-                    (rebuild)
-            """
-             str = str.replacingOccurrences(of: checkBuildBlock, with: replaceBuildBlock)
-            
-            let checkCompletionBlock: String = "(generate-completion-script)"
-            let replaceCompletiondBlock: String = """
-            (generate-completion-script)
-                        _swift_package_generate-completion-script $(($1+1))
-                        return
-                        ;;
-                    (install-completion-script)
-            """
-            str = str.replacingOccurrences(of: checkCompletionBlock, with: replaceCompletiondBlock)
-            
-            
-            str = str.replacingOccurrences(of: "complete -F _swift swift", with: "complete -F _swift \(dswiftAppName)")
-            
-            str = str.replacingOccurrences(of: "_swift", with: "_\(dswiftAppName)")
-            
-        } else if args.last == "zsh" || args.last == "generate-zsh-script" {
-            str = str.replacingOccurrences(of: "#compdef swift", with: "#compdef \(dswiftAppName)")
-            str = str.replacingOccurrences(of: "                'build:build sources into binary products'",
-                                           with: "                'build:build sources into binary products'\n                'rebuild:rebuild \(dswiftAppName) files then build sources into binary products'")
-            
-            str = str.replacingOccurrences(of: "                'generate-completion-script:Generate completion script (Bash or ZSH)'",
-                                           with: "                'generate-completion-script:Generate completion script (Bash or ZSH)'\n                'install-completion-script:Install completion script (Bash or ZSH)'")
-            
-            let checkBuildBlock: String = "(build)"
-            let replaceBuildBlock: String = """
-            (build)
-                                _swift_build
-                                ;;
-                            (rebuild)
-            """
-            
-            str = str.replacingOccurrences(of: checkBuildBlock, with: replaceBuildBlock)
-            
-            let checkCompletionBlock: String = "(generate-completion-script)"
-            let replaceCompletionBlock: String = """
-            (generate-completion-script)
-                                _swift_package_generate-completion-script
-                                ;;
-                            (install-completion-script)
-            """
-            
-            str = str.replacingOccurrences(of: checkCompletionBlock, with: replaceCompletionBlock)
-            
-            str = str.replacingOccurrences(of: "_swift", with: "_\(dswiftAppName)")
-            
-        }
-        
-        return (str, task.terminationStatus)
-    }
-    
-    /// swift package generate-xcodeproj catcher
-    private static func commandPackageGenAutoScript(_ args: [String]) throws -> Int32 {
-        let r = try _commandPackageGenAutoScript(args)
-        print(r.0)
-        return r.1
-    }
-   */
     
     /// swift package generate-xcodeproj catcher
     private static func commandPackageGenAutoScript(_ args: [String]) throws -> Int32 {
@@ -1492,22 +1394,26 @@ extension Commands {
                     returnCode = rCode
                 }
                 
-                let rule = try nT.createBuildRule(name: "Dynamic Swift",
-                                                   compilerSpec: "com.apple.compilers.proxy.script",
-                                                   fileType: XcodeFileType.Pattern.proxy,
-                                                   editable: true,
-                                                   filePatterns: "*.dswift",
-                                                   outputFiles: ["$(INPUT_FILE_DIR)/$(INPUT_FILE_BASE).swift"],
-                                                   outputFilesCompilerFlags: nil,
-                                                   script: "",
-                                                   atLocation: .end)
-                rule.script = """
-                if ! [ -x "$(command -v \(dswiftAppName))" ]; then
+                //let supportedFilePatterns: String = "*.dswift"
+                for ext in generator.supportedExtensions {
+                    let rule = try nT.createBuildRule(name: "Dynamic Swift (\(ext))",
+                                                            compilerSpec: "com.apple.compilers.proxy.script",
+                                                            fileType: XcodeFileType.Pattern.proxy,
+                                                            editable: true,
+                                                            filePatterns: "*.\(ext)", //"*.dswift",
+                                                            outputFiles: ["$(INPUT_FILE_DIR)/$(INPUT_FILE_BASE).swift"],
+                                                            outputFilesCompilerFlags: nil,
+                                                            script: "",
+                                                            atLocation: .end)
+                    rule.script = """
+                    if ! [ -x "$(command -v \(dswiftAppName))" ]; then
                     echo "Error: \(dswiftAppName) is not installed.  Please visit \(dSwiftURL) to download and install." >&2
                     exit 1
-                fi
-                \(dswiftAppName) xcodebuild ${INPUT_FILE_PATH}
-                """
+                    fi
+                    \(dswiftAppName) xcodebuild ${INPUT_FILE_PATH}
+                    """
+                }
+               
             }
         }
  
@@ -1574,7 +1480,8 @@ extension Commands {
             }*/
             for child in children {
                 // Check current dir for files
-                if child.pathExtension.lowercased() == dswiftFileExtension, child.isFile /*child.isPathFile*/ {
+                //if dswiftSupportedFileExtensions.contains(child.pathExtension.lowercased()), child.isFile /*child.isPathFile*/ {
+                if child.isFile && generator.isSupportedFile(child.path) {
                     return true
                 }
             }
@@ -1596,13 +1503,18 @@ extension Commands {
         }*/
         
         for child in children {
-            if child.pathExtension.lowercased() == dswiftFileExtension, child.isFile /*child.isPathFile*/ {
+            
+            //if  dswiftSupportedFileExtensions.contains(child.pathExtension.lowercased()), child.isFile /*child.isPathFile*/ {
+            if child.isFile && generator.canAddToXcodeProject(file: child.path) {
                 if group.file(atPath: child.lastPathComponent) == nil {
                     // Only add the dswift file to the project if its not already there
                     let f = try group.addExisting(child,
                                                   copyLocally: true,
                                                   savePBXFile: false) as! XcodeFile
-                    f.languageSpecificationIdentifier = "xcode.lang.swift"
+                    
+                    //f.languageSpecificationIdentifier = "xcode.lang.swift"
+                    f.languageSpecificationIdentifier = generator.languageForXcode(file: child.path)
+                    f.explicitFileType = generator.explicitFileTypeForXcode(file: child.path)
                     target.sourcesBuildPhase().createBuildFile(for: f)
                     //print("Adding dswift file '\(child.path)'")
                 }
