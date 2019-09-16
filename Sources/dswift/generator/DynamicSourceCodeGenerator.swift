@@ -11,9 +11,10 @@ import Dispatch
 import Glibc
 #endif
 import SwiftPatches
+import XcodeProj
 
 
-public class DynamicSourceCodeGenerator {
+public class DynamicSourceCodeGenerator: DynamicGenerator {
     
     public enum Errors: Error, CustomStringConvertible {
         public enum FolderType {
@@ -111,8 +112,7 @@ public class DynamicSourceCodeGenerator {
     
     public static let PACKAGE_FILE_ENCODING: String.Encoding = String.Encoding.utf8
     
-    public typealias PRINT_SIG = (_ message: String, _ filename: String, _ line: Int, _ funcname: String) -> Void
-    
+    public var supportedExtensions: [String] { return ["dswift"] }
     
     /*#if os(Linux)
     private static let MANGLED_INIT_PREFIX: String = "_T0"
@@ -133,19 +133,19 @@ public class DynamicSourceCodeGenerator {
     
     private let swiftPath: String
     
-    private let _print: DynamicSourceCodeGenerator.PRINT_SIG
-    private let _verbosePrint: DynamicSourceCodeGenerator.PRINT_SIG
-    private let _debugPrint: DynamicSourceCodeGenerator.PRINT_SIG
+    private let _print: PRINT_SIG
+    private let _verbosePrint: PRINT_SIG
+    private let _debugPrint: PRINT_SIG
     
     private let dSwiftModuleName: String
     private let dSwiftURL: String
     
-    public init(swiftPath: String = "/usr/bin/swift",
-                dSwiftModuleName: String,
-                dSwiftURL: String,
-                print: @escaping DynamicSourceCodeGenerator.PRINT_SIG = { (message, filename, line, funcname) -> Void in Swift.print(message, terminator: "") },
-                verbosePrint: @escaping DynamicSourceCodeGenerator.PRINT_SIG = { (message, filename, line, funcname) -> Void in return  },
-                debugPrint: @escaping DynamicSourceCodeGenerator.PRINT_SIG = { (message, filename, line, funcname) -> Void in Swift.debugPrint(message, terminator: "") }) throws {
+    required public init(_ swiftPath: String,
+                         _ dSwiftModuleName: String,
+                         _ dSwiftURL: String,
+                         _ print: @escaping PRINT_SIG,
+                         _ verbosePrint: @escaping PRINT_SIG,
+                         _ debugPrint: @escaping PRINT_SIG) throws {
         if swiftPath.isEmpty { throw Errors.swiftPathNotProvided }
         else if !FileManager.default.fileExists(atPath: swiftPath) { throw Errors.missingSwift(atPath: swiftPath) }
         self.swiftPath = swiftPath
@@ -205,6 +205,18 @@ public class DynamicSourceCodeGenerator {
             return rtn
         }
         self._debugPrint(msg + terminator, filename, line, funcname)
+    }
+    
+    public func languageForXcode(file: String) -> String? {
+        return "xcode.lang.swift"
+    }
+    
+    public func explicitFileTypeForXcode(file: String) -> XcodeFileType? {
+        return XcodeFileType.Text.plainText
+    }
+    
+    func isSupportedFile(_ file: String) -> Bool {
+        return file.pathExtension.lowercased() == "dswift"
     }
     
     private func getNextLibraryName() -> String {
@@ -485,7 +497,7 @@ public class DynamicSourceCodeGenerator {
         }
     }
     
-    public func generateSource(from source: URL, havingEncoding encoding: String.Encoding? = nil, to destination: URL) throws {
+    /*public func generateSource(from source: URL, havingEncoding encoding: String.Encoding? = nil, to destination: URL) throws {
         guard source.isFileURL else { throw Errors.mustBeFileURL(source) }
         guard destination.isFileURL else { throw Errors.mustBeFileURL(destination) }
         try generateSource(from: source.path, havingEncoding: encoding, to: destination.path)
@@ -494,5 +506,5 @@ public class DynamicSourceCodeGenerator {
     public func generateSource(from source: URL) throws -> (String, String.Encoding) {
         guard source.isFileURL else { throw Errors.mustBeFileURL(source) }
         return try self.generateSource(from: source.path)
-    }
+    }*/
 }
