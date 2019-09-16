@@ -25,6 +25,7 @@ class DynamicSourceCodeBuilder {
     
     enum CodeBlockDefinition {
         
+        /// The opening brace of a code block
         var openingBrace: String {
             switch (self) {
             case .basic(let opening, _) : return opening
@@ -34,6 +35,7 @@ class DynamicSourceCodeBuilder {
             }
         }
         
+        /// The closing brace of a code block
         var closingBrace: String {
             switch (self) {
             case .basic(_, let closing) : return closing
@@ -45,21 +47,24 @@ class DynamicSourceCodeBuilder {
         
         
         
+        /// Indicator if the current code block is a basic block
         var isBasicBlock: Bool {
             if case .basic = self { return true }
             else { return false }
         }
         
+        /// Indicator if the current code block is a static block
         var isStaticBlock: Bool {
             if case .static(_, _) = self { return true }
             else { return false }
         }
         
+        /// Indicator if the current code block is an inline block
         var isInlineBlock: Bool {
             if case .inline = self { return true }
             else { return false }
         }
-        
+        /// Indicator if the current code block is a text block
         var isTextBlock: Bool {
             if case .text = self { return true }
             else { return false }
@@ -285,17 +290,18 @@ class DynamicSourceCodeBuilder {
         var lastBlockEnding: String.Index = self.source.startIndex
        
         while let block = try blockDefinitions.nextBlockSet(from: self.source,
-                                                            startingAt: lastBlockEnding, inFile: self.file) {
-                                                                lastBlockEnding = block.range.upperBound
-                                                                if block.type.isTextBlock { // Plain text
-                                                                    generatorContent += strBlockToPrintCode(block.lines, tabs: 2)
-                                                                } else if block.type.isBasicBlock { // ?%...%?
-                                                                    generatorContent += block.string + "\n"
-                                                                } else if block.type.isInlineBlock { // ?%=..%?
-                                                                    generatorContent += "\t\tsourceBuilder += \"\\(" + block.string + ")\"\n"
-                                                                } else if block.type.isStaticBlock {
-                                                                    classContent += block.string + "\n"
-                                                                }
+                                                            startingAt: lastBlockEnding,
+                                                            inFile: self.file) {
+            lastBlockEnding = block.range.upperBound
+            if block.type.isTextBlock { // Plain text
+                generatorContent += strBlockToPrintCode(block.lines, tabs: 2)
+            } else if block.type.isBasicBlock { // ?%...%?
+                generatorContent += block.string + "\n"
+            } else if block.type.isInlineBlock { // ?%=..%?
+                generatorContent += "\t\tsourceBuilder += \"\\(" + block.string + ")\"\n"
+            } else if block.type.isStaticBlock {
+                classContent += block.string + "\n"
+            }
         }
         
         var completeSource: String = "import Foundation\n\n"

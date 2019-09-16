@@ -124,6 +124,7 @@ extension Commands {
         return returnCode
     }
     
+    /// Function called when executed build command
     static func commandXcodeDSwiftBuild(_ args: [String]) throws -> Int32 {
         let generator = try DynamicSourceCodeGenerator(swiftPath: settings.swiftPath,
                                                        dSwiftModuleName: dSwiftModuleName,
@@ -154,6 +155,7 @@ extension Commands {
         
     }
     
+    /// Process a specific supported file
     private static func processFile(generator: DynamicGenerator,
                                     file source: URL,
                                     root: URL,
@@ -222,6 +224,7 @@ extension Commands {
         return (destination: destination, updated: updated, created: created)
     }
     
+    /// Look through a specific folder for supported files
     private static func processFolder(generator: DynamicGenerator,
                                       inTarget target: String,
                                       folder: URL,

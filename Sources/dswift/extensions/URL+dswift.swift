@@ -9,18 +9,19 @@ import Foundation
 import SwiftPatches
 
 extension URL {
+    /// Returns if current url is a path directory
     var isPathDirectory: Bool {
         var isDir: Bool = false
         guard FileManager.default.fileExists(atPath: self.path, isDirectory: &isDir) else { return false }
         return isDir
     }
-    
+    /// Returns if the current url is a path file
     var isPathFile: Bool {
         var isDir: Bool = true
         guard FileManager.default.fileExists(atPath: self.path, isDirectory: &isDir) else { return false }
         return !isDir
     }
-    
+    /// Returns the path modification date if available
     var pathModificationDate: Date? {
         do {
             let attr = try FileManager.default.attributesOfItem(atPath: self.path)
@@ -30,7 +31,7 @@ extension URL {
         }
     }
     
-    
+    /// Returns the path creation date if available
     var pathCreationDate: Date? {
         do {
             let attr = try FileManager.default.attributesOfItem(atPath: self.path)

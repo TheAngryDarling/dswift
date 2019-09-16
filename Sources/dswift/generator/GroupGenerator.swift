@@ -31,11 +31,13 @@ public enum DynamicGeneratorErrors: Error, CustomStringConvertible {
 public protocol DynamicGenerator {
     typealias PRINT_SIG = (_ message: String, _ filename: String, _ line: Int, _ funcname: String) -> Void
     
+    /// The supported extensions for the given generator
     var supportedExtensions: [String] { get }
-    
+    /// Method for cleaning a given folder of any generated source files
     func clean(folder: URL) throws
-    
+    /// A method to test if the current file can be added to a Xcode Project File
     func canAddToXcodeProject(file: URL) -> Bool
+    /// A method to test if the current file can be added to a Xcode Project File
     func canAddToXcodeProject(file: String) -> Bool
     
     //func languageForXcode(file: URL) -> String?
@@ -44,10 +46,11 @@ public protocol DynamicGenerator {
     //func explicitFileTypeForXcode(file: URL) -> XcodeFileType?
     func explicitFileTypeForXcode(file: String) -> XcodeFileType?
     
-    
+    /// Method for generating a source code from the given file
     func generateSource(from: String, havingEncoding: String.Encoding?, to: String) throws
+    /// Method for generating a source code from the given file
     func generateSource(from source: URL, havingEncoding encoding: String.Encoding?, to destination: URL) throws
-    
+    /// Initializer for creating a new generator
     init(_ swiftPath: String,
          _ dSwiftModuleName: String,
          _ dSwiftURL: String,
@@ -144,6 +147,8 @@ public extension DynamicGenerator {
     }
     
 }
+
+/// Generator class that contains multiple child generators
 public class GroupGenerator: DynamicGenerator {
     private static let GENERATORS: [DynamicGenerator.Type] = [DynamicSourceCodeGenerator.self, StaticFileSourceCodeGenerator.self]
     
