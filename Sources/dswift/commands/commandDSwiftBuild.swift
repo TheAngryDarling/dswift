@@ -11,26 +11,6 @@ import PBXProj
 
 extension Commands {
     
-    /// Generate string message
-    private static func buildPrintLine(_ message: String, _ filename: String, _ line: Int, _ funcname: String) -> String {
-        return "\(filename) - \(funcname)(\(line)): \(message)"
-    }
-    
-    /// Print function for the dswift generator
-    private static func generatorPrint(_ message: String, _ filename: String, _ line: Int, _ funcname: String) {
-        let msg = buildPrintLine(message, filename, line, funcname)
-        print(msg)
-    }
-    /// Debug Print function for the dswift generator
-    private static func generatorDebugPrint(_ message: String, _ filename: String, _ line: Int, _ funcname: String) {
-        let msg = buildPrintLine(message, filename, line, funcname)
-        debugPrint(msg)
-    }
-    /// Verbose Print function for the dswift generator
-    private static func generatorVerbosePrint(_ message: String, _ filename: String, _ line: Int, _ funcname: String) {
-        let msg = buildPrintLine(message, filename, line, funcname)
-        verbosePrint(msg)
-    }
     /// DSwift command execution
     static func commandDSwiftBuild(_ args: [String]) throws -> Int32 {
         var returnCode: Int32 = 0
@@ -70,12 +50,12 @@ extension Commands {
             
             
             
-            let generator = try DynamicSourceCodeGenerator(swiftPath: settings.swiftPath,
+            /*let generator = try DynamicSourceCodeGenerator(swiftPath: settings.swiftPath,
                                                            dSwiftModuleName: dSwiftModuleName,
                                                            dSwiftURL: dSwiftURL,
                                                            print: generatorPrint,
                                                            verbosePrint: generatorVerbosePrint,
-                                                           debugPrint: generatorDebugPrint)
+                                                           debugPrint: generatorDebugPrint)*/
             
             var hasProcessedTarget: Bool = false
             var projectUpdated: Bool = false
@@ -95,7 +75,6 @@ extension Commands {
                     verbosePrint("Looking at target: \(t.name)")
                     let targetPath = URL(fileURLWithPath: t.path, isDirectory: true)
                     let r = try processFolder(generator: generator,
-                                              fileExtension: dswiftFileExtension,
                                               inTarget: t.name,
                                               folder: targetPath,
                                               root: packageURL,
@@ -175,7 +154,7 @@ extension Commands {
         
     }
     
-    private static func processFile(generator: DynamicSourceCodeGenerator,
+    private static func processFile(generator: DynamicGenerator,
                                     file source: URL,
                                     root: URL,
                                     rebuild: Bool,
@@ -243,8 +222,7 @@ extension Commands {
         return (destination: destination, updated: updated, created: created)
     }
     
-    private static func processFolder(generator: DynamicSourceCodeGenerator,
-                                      fileExtension: String,
+    private static func processFolder(generator: DynamicGenerator,
                                       inTarget target: String,
                                       folder: URL,
                                       root: URL,
@@ -270,9 +248,14 @@ extension Commands {
                 }
                 guard child.isPathFile else { continue }
                 
-                if child.pathExtension.lowercased() == fileExtension.lowercased() {
+                //if dswiftSupportedFileExtensions.contains(child.pathExtension.lowercased()) {
+                if generator.isSupportedFile(child) {
                     do {
-                        let modifications = try processFile(generator: generator, file: child, root: root, rebuild: rebuild, project: project)
+                        let modifications = try processFile(generator: generator,
+                                                            file: child,
+                                                            root: root,
+                                                            rebuild: rebuild,
+                                                            project: project)
                         if modifications.created {
                             verbosePrint("Created file '\(modifications.destination.path)'")
                             created += 1
@@ -285,7 +268,7 @@ extension Commands {
                         }
                         
                         // Must add new generated file here
-                        if let p = project, let target = p.targets.first(where: { return $0.name == target}) {
+                        /*if let p = project, let target = p.targets.first(where: { return $0.name == target}) {
                             
                             let localURL = modifications.destination.relative(to: root)
                             let parentGroupURL = localURL.deletingLastPathComponent()
@@ -318,7 +301,7 @@ extension Commands {
                                     }*/
                                 }
                             }
-                        }
+                        }*/
                         
                         
                     } catch {
@@ -339,7 +322,6 @@ extension Commands {
         
         for subFolder in folders {
             let r = try processFolder(generator: generator,
-                                      fileExtension: fileExtension,
                                       inTarget: target,
                                       folder: subFolder,
                                       root: root,
