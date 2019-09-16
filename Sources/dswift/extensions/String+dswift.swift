@@ -144,4 +144,16 @@ internal extension String {
         
         return rtn
     }
+    
+    func fullPath(from base: String) -> String {
+        guard !self.hasPrefix("/") else { return self }
+        guard !self.hasPrefix("~/") else {
+            return NSString(string: NSString(string: self).expandingTildeInPath).standardizingPath
+        }
+        
+        var rtn: String = base
+        if !rtn.hasSuffix("/") { rtn += "/" }
+        rtn += self
+        return NSString(string: rtn).standardizingPath
+    }
 }
