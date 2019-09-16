@@ -7,7 +7,7 @@ Dynamic Swift is a wrapper application for working with SwiftPM projects.  The p
 
 For installation instructions click [here](INSTALL.md)
 
-    Note: This project has a minimun requirement of Swift 4.0 
+    Note: This project has a minimum requirement of Swift 4.0 
 
     Note: When adding new dswift files manually through Xcode, add a new Swift file making sure to set the proper target.  After the file is created then re-name the extension to .dswift.  Xcode won't allow you to set the target  afterwards if the file extension is not a known compilable file.
 
@@ -22,6 +22,20 @@ Supported bocks:
 * <%! ... %>: Static Block - Code in here is declared outside the generator function.  This gives you access to declaring class properties, functions etc to use within the regular blocks
 * <%=...%>: Inline block - Used as a simple output tool for writing data to the generator
 
+## Dynamic Static Swift Files (.dswift-static)
+
+Dynamic Static Swift files are JSON files that instruct the dswift application to load the contents of a specified file into the project as a static variable
+
+```json
+{
+    "file": "{Relative path to file to load}",
+    "namespace": "{Optional namespace path for extension}",
+    "modifier": "{access modifier. public or internal}",
+    "name": "{Name to give new struct object}",
+    "type": "{load type.  binary or text or text(iana character set name)}"
+}
+```
+
 ## Usage
 
 ### Example Commands
@@ -35,7 +49,7 @@ Supported bocks:
 * dswift package reset <-- Clears dependencies (through swift), clears dswift cached build files
 * dswift package generate-xcodeproj <-- Generates Xcode Project file (through swift), add dswift scripts to project, and if set in configuration, sorts resources within project
 
-### Example File
+### Example File (dswift)
 
 ```swift
 /// Example File:
@@ -71,6 +85,115 @@ public class Example {
     }
     public func testFunc4() {
         print("This is function #4")
+    }
+}
+```
+
+### Example File (dswift-static)
+
+```json
+{
+    "file": "{Relative path to file to load}",
+    "namespace": "{Optional namespace path for extension}",
+    "modifier": "{access modifier. public or internal}",
+    "name": "{Name to give new struct object}",
+    "type": "{load type.  binary or text or text(iana character set name)}"
+}
+```
+
+#### Example String File
+
+dswift-file (no namespace)
+```json
+{
+    "file": "string.file",
+    "modifier": "public",
+    "name": "Strings",
+    "type": "text"
+}
+```
+
+generated file (no namespace)
+
+```swift
+public struct Strings {
+    private init() { }
+    private static let string: String = """
+...
+"""
+    public static var data: Data { return Strings.string.data(using: String.Encoding(rawValue: 4))! }
+}
+```
+
+dswift-file (with namespace)
+
+```json
+{
+    "file": "string.file",
+    "namespace": "ClassName1.ClassName2"
+    "modifier": "public",
+    "name": "Strings",
+    "type": "text"
+}
+```
+
+generated file (with namespace)
+
+```swift
+public extension ClassName1.ClassName2 {
+    struct Strings {
+        private init() { }
+        private static let string: String = """
+...
+"""
+        public static var data: Data { return Strings.string.data(using: String.Encoding(rawValue: 4))! }
+    }
+}
+```
+
+#### Example Binary File
+
+dswift-file (no namespace)
+```json
+{
+    "file": "binary.file",
+    "modifier": "public",
+    "name": "Binary",
+    "type": "binary"
+}
+```
+
+generated file (no namespace)
+```swift
+public struct Binary {
+    private init() { }
+    private static let _value: [Int8] = [
+    ...
+    ]
+    public static var data: Data { return Data(bytes: Binary._value) }
+}
+```
+
+dswift-file (with namespace)
+```json
+{
+    "file": "binary.file",
+    "namespace": "ClassName1.ClassName2"
+    "modifier": "public",
+    "name": "Binary",
+    "type": "binary"
+}
+```
+
+generated file (with namespace)
+```swift
+public extension ClassName1.ClassName2 {
+    struct Binary {
+        private init() { }
+        private static let _value: [Int8] = [
+        ...
+        ]
+        public static var data: Data { return Data(bytes: Binary._value) }
     }
 }
 ```
