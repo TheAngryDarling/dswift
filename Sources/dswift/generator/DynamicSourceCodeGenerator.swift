@@ -489,11 +489,13 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
             }
         }
         try s.source.write(toFile: destinationPath, atomically: false, encoding: s.encoding)
-        do {
-            //marking generated file as read-only
-            try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 4444)], ofItemAtPath: destinationPath)
-        } catch {
-            verbosePrint("Unable to mark'\(destinationPath)' as readonly")
+        if settings.lockGenFiles {
+            do {
+                //marking generated file as read-only
+                try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 4444)], ofItemAtPath: destinationPath)
+            } catch {
+                verbosePrint("Unable to mark'\(destinationPath)' as readonly")
+            }
         }
     }
     
