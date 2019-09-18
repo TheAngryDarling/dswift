@@ -228,7 +228,7 @@ public class GroupGenerator: DynamicGenerator {
     public func generateSource(from source: String, havingEncoding: String.Encoding?, to destination: String) throws {
         for generator in self.generators {
             if generator.isSupportedFile(source) {
-                
+                verbosePrint("Generating source code from '\(source)' using \(type(of: generator)) generator")
                 try generator.generateSource(from: source, havingEncoding: havingEncoding, to: destination)
                 return
             }
