@@ -11,8 +11,8 @@ import XcodeProj
 extension Commands {
     private static let defaultConfig: String = """
 {
-    // The default swift path to use unless specificed in the command line
-    "swiftPath": "/usr/bin/swift",
+    // (Optional, If not set /usr/bin/swift is used) The default swift path to use unless specificed in the command line
+    // "swiftPath": "/usr/bin/swift",
 
     // Sort files and folders within the project
     // "none":  No sorting
@@ -50,14 +50,17 @@ extension Commands {
     "regenerateXcodeProject": false,
 
     // Your public repositor information.  This is used when auto-generating readme files
-    // "repository": "https://github.com/YOUR REPOSITORY" <-- Sets the Service URL and repository name
+    // "repository": "https://github.com/YOUR REPOSITORY", <-- Sets the Service URL and repository name
     // OR
     // Please note, serviceName and repositoryName are optional
     // "repository": {
     //      "serviceName": "GitHub",
     //      "serviceURL": "https://github.com/YOUR REPOSITORY",
     //      "repositoryName": "YOUR REPOSITORY NAME",
-    // }    
+    // },
+
+    /// (Optional, Default: true) Lock generated files from being modified manually
+    /// "lockGenratedFiles": true,
 }
 """
     /// Method for setting up default dswift configuration
