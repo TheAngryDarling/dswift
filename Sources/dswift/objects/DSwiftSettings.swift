@@ -7,6 +7,7 @@
 
 import Foundation
 import XcodeProj
+import BasicCodableHelpers
 
 /// Settings structure for the config file
 struct DSwiftSettings {
@@ -18,6 +19,7 @@ struct DSwiftSettings {
         case regenerateXcodeProject
         case repository
         case authorName
+        case lockGenFiels = "lockGeneratedFiles"
     }
     
     enum FileResourceSorting: String, Codable {
@@ -163,8 +165,10 @@ struct DSwiftSettings {
     let regenerateXcodeProject: Bool
     /// Developer repository information
     let repository: Repository?
-    // Author Name for use in README.md file when generated
+    /// Author Name for use in README.md file when generated
     let authorName: String?
+    /// Lock generated files.  Locks any generated files from being modified
+    let lockGenFiles: Bool
     
     public init() {
         self.swiftPath = DSwiftSettings.defaultSwiftPath
@@ -174,6 +178,7 @@ struct DSwiftSettings {
         self.regenerateXcodeProject = false
         self.repository = nil
         self.authorName = nil
+        self.lockGenFiles = true
     }
 }
 
@@ -191,6 +196,7 @@ extension DSwiftSettings: Codable {
         self.regenerateXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .regenerateXcodeProject) ?? false
         self.repository = try container.decodeIfPresent(Repository.self, forKey: .repository)
         self.authorName = try container.decodeIfPresent(String.self, forKey: .authorName)
+        self.lockGenFiles = try container.decodeIfPresent(Bool.self, forKey: .lockGenFiels, withDefaultValue: true)
         
     }
     
