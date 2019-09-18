@@ -130,7 +130,7 @@ dswift-file (with namespace)
 ```json
 {
     "file": "string.file",
-    "namespace": "ClassName1.ClassName2"
+    "namespace": "ClassName1.ClassName2",
     "modifier": "public",
     "name": "Strings",
     "type": "text"
@@ -178,7 +178,7 @@ dswift-file (with namespace)
 ```json
 {
     "file": "binary.file",
-    "namespace": "ClassName1.ClassName2"
+    "namespace": "ClassName1.ClassName2",
     "modifier": "public",
     "name": "Binary",
     "type": "binary"
