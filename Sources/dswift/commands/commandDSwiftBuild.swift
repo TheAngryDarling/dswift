@@ -126,12 +126,12 @@ extension Commands {
     
     /// Function called when executed build command
     static func commandXcodeDSwiftBuild(_ args: [String]) throws -> Int32 {
-        let generator = try DynamicSourceCodeGenerator(swiftPath: settings.swiftPath,
+        /*let generator = try DynamicSourceCodeGenerator(swiftPath: settings.swiftPath,
                                                        dSwiftModuleName: dSwiftModuleName,
                                                        dSwiftURL: dSwiftURL,
                                                        print: generatorPrint,
                                                        verbosePrint: generatorVerbosePrint,
-                                                       debugPrint: generatorDebugPrint)
+                                                       debugPrint: generatorDebugPrint)*/
         
         let packageURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let source = URL(fileURLWithPath: args[1])
