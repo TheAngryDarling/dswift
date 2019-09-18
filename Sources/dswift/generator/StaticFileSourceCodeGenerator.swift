@@ -193,7 +193,9 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             sourceCode += "\n"
             sourceCode += "\"\"\"\n"
             sourceCode += structTabs + "\t\(srcFile.modifier) static var data: Data { return \(srcFile.name).string.data(using: String.Encoding(rawValue: \(encoding.rawValue)))! }\n"
+            
         } else {
+            
              let data = try Data(contentsOf: workingFileURL)
             sourceCode += structTabs + "\tprivate static let _value: [UInt8] = [\n"
             sourceCode += structTabs + "\t\t"
@@ -206,6 +208,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             sourceCode += "\n"
             sourceCode += structTabs + "\t]\n"
             sourceCode += structTabs + "\t\(srcFile.modifier) static var data: Data { return Data(bytes: \(srcFile.name)._value) }\n"
+            
         }
         sourceCode += structTabs + "}"
         
@@ -236,11 +239,13 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             }
         }
         try s.source.write(toFile: destinationPath, atomically: false, encoding: s.encoding)
-        do {
-            //marking generated file as read-only
-            try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 4444)], ofItemAtPath: destinationPath)
-        } catch {
-            verbosePrint("Unable to mark'\(destinationPath)' as readonly")
+        if settings.lockGenFiles {
+            do {
+                //marking generated file as read-only
+                try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 4444)], ofItemAtPath: destinationPath)
+            } catch {
+                verbosePrint("Unable to mark'\(destinationPath)' as readonly")
+            }
         }
     }
     
