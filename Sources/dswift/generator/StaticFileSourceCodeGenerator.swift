@@ -192,6 +192,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             sourceCode += "\(stringValue)"
             sourceCode += "\n"
             sourceCode += "\"\"\"\n"
+            sourceCode += structTabs + "\t\(srcFile.modifier) static let encoding: String.Encoding = String.Encoding(rawValue: \(encoding.rawValue))\n"
             sourceCode += structTabs + "\t\(srcFile.modifier) static var data: Data { return \(srcFile.name).string.data(using: String.Encoding(rawValue: \(encoding.rawValue)))! }\n"
             
         } else {
@@ -207,7 +208,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             }
             sourceCode += "\n"
             sourceCode += structTabs + "\t]\n"
-            sourceCode += structTabs + "\t\(srcFile.modifier) static var data: Data { return Data(bytes: \(srcFile.name)._value) }\n"
+            sourceCode += structTabs + "\t\(srcFile.modifier) static var data: Data { return Data(\(srcFile.name)._value) }\n"
             
         }
         sourceCode += structTabs + "}"
