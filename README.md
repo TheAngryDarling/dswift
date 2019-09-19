@@ -1,4 +1,5 @@
 # Dynamic Swift
+
 ![macOS](https://img.shields.io/badge/os-macOS-green.svg?style=flat)
 ![Linux](https://img.shields.io/badge/os-linux-green.svg?style=flat)
 ![Apache 2](https://img.shields.io/badge/license-Apache2-blue.svg?style=flat)
@@ -8,11 +9,13 @@ Dynamic Swift is a wrapper application for working with SwiftPM projects.  The p
 
 For installation instructions click [here](INSTALL.md)
 
-    Note: This project has a minimum requirement of Swift 4.0 
-
-    Note: When adding new dswift files manually through Xcode, add a new Swift file making sure to set the proper target.  After the file is created then re-name the extension to .dswift.  Xcode won't allow you to set the target  afterwards if the file extension is not a known compilable file.
-
-    The other way to add missing dswift files to the Xcode Project is to re-generate the project file with the following command: dswift package generate-xcodeproj
+> **Notes:**
+>
+> This project has a minimum requirement of Swift 4.0
+>
+> Note: When adding new dswift files manually through Xcode, add a new Swift file making sure to set the proper target.  After the file is created then re-name the extension to .dswift.  Xcode won't allow you to set the target  afterwards if the file extension is not a known compilable file.
+>
+> The other way to add missing dswift files to the Xcode Project is to re-generate the project file with the following command: dswift package generate-xcodeproj
 
 ## Dynamic Swift Files (.dswift)
 
@@ -105,6 +108,7 @@ public class Example {
 #### Example String File
 
 dswift-file (no namespace)
+
 ```json
 {
     "file": "string.file",
@@ -155,6 +159,7 @@ public extension ClassName1.ClassName2 {
 #### Example Binary File
 
 dswift-file (no namespace)
+
 ```json
 {
     "file": "binary.file",
@@ -165,6 +170,7 @@ dswift-file (no namespace)
 ```
 
 generated file (no namespace)
+
 ```swift
 public struct Binary {
     private init() { }
@@ -176,6 +182,7 @@ public struct Binary {
 ```
 
 dswift-file (with namespace)
+
 ```json
 {
     "file": "binary.file",
@@ -187,6 +194,7 @@ dswift-file (with namespace)
 ```
 
 generated file (with namespace)
+
 ```swift
 public extension ClassName1.ClassName2 {
     struct Binary {
