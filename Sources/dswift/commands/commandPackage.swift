@@ -1108,6 +1108,23 @@ extension Commands {
         }
     }
     
+    private static func resetDSwiftBuilds() throws {
+        // get the current project folder
+        let workingDir = FileManager.default.currentDirectoryPath
+        let workingURL = URL(fileURLWithPath: workingDir, isDirectory: true)
+        let urls: [URL] = [
+                            workingURL.appendingPathComponent("Sources", isDirectory: true),
+                            workingURL.appendingPathComponent("Tests", isDirectory: true),
+                           ]
+        for url in urls {
+            if FileManager.default.fileExists(atPath: url.path) {
+                verbosePrint("Looking at folder: \(url.path)")
+                try generator.clean(folder: url)
+            }
+        }
+        
+    }
+    
     
     /// Clean a folder of any swift files build from dswift
     /*static func cleanFolder(fileExtensions: [String], folder: URL) throws {
@@ -1165,7 +1182,7 @@ extension Commands {
     
     /// swift package reset catcher
     private static func commandPackageReset(_ args: [String], _ retCode: Int32) throws -> Int32 {
-        try cleanDSwiftBuilds()
+        try resetDSwiftBuilds()
         return retCode
     }
     
