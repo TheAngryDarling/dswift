@@ -15,7 +15,7 @@ public struct PackageDescription: Codable {
         case missingPackageFolder(String)
         case missingPackageFile(String)
         case unableToLoadDescription(String)
-        case unableToTransformDescriptionIntoObjects(Swift.Error, Data)
+        case unableToTransformDescriptionIntoObjects(Swift.Error, Data, String?)
     }
     public struct Target: Codable {
         let c99name: String
@@ -49,17 +49,29 @@ public struct PackageDescription: Codable {
         task.standardInput = FileHandle.nullDevice
         #endif
         task.standardOutput = pipe
-        task.standardOutput = pipe
+        // Send errors to null
+        task.standardError = FileHandle.nullDevice
+        //task.standardOutput = pipe
         
         try task.execute()
         task.waitUntilExit()
         
         if task.terminationStatus != 0 { throw Error.unableToLoadDescription(packagePath) }
         
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        var data = pipe.fileHandleForReading.readDataToEndOfFile()
+        // Convert output to utf8 string
+        if let describeStr = String(data: data, encoding: .utf8) {
+            // Find the start of the json string {
+            if let r = describeStr.range(of: "{") {
+                // Create substring from the beginning of the json
+                let jsonStr = String(describeStr[r.lowerBound...])
+                // Convert back into data for decoding
+                data = jsonStr.data(using: .utf8)!
+            }
+        }
         
         let decoder = JSONDecoder()
         do { self = try decoder.decode(PackageDescription.self, from: data) }
-        catch { throw Error.unableToTransformDescriptionIntoObjects(error, data) }
+        catch { throw Error.unableToTransformDescriptionIntoObjects(error, data, String(data: data, encoding: .utf8)) }
     }
 }
