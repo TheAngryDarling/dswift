@@ -2,6 +2,7 @@
 ![macOS](https://img.shields.io/badge/os-macOS-green.svg?style=flat)
 ![Linux](https://img.shields.io/badge/os-linux-green.svg?style=flat)
 ![Apache 2](https://img.shields.io/badge/license-Apache2-blue.svg?style=flat)
+[![Docker](https://img.shields.io/badge/container-Docker-blue.svg?style=flat)](https://cloud.docker.com/u/theangrydarling/repository/docker/theangrydarling/dswift)
 
 Dynamic Swift is a wrapper application for working with SwiftPM projects.  The primary purpose of this application is to allow developers to write code in swift that generates code (much like how other projects may use Python, Perl, or some other scripting language to generate code), this way its all in the same language.
 
