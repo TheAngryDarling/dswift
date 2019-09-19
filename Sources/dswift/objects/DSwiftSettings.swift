@@ -478,7 +478,7 @@ extension DSwiftSettings.ReadMe: Codable {
             readmeContents += "\nProject description goes here\n\n"
             
             //let exts = generator.supportedExtensions.map({ return ".\($0)" }).joined(separator: " or ")
-            readmeContents += "Note: This package used [\(dSwiftModuleName)](\(dSwiftURL)) to generate some of its source code.  While the generated source code should be included and available in this package so building directly with swift is possible, if missing, you may need to download and build with [\(dSwiftModuleName)](\(dSwiftURL))\n\n"
+            readmeContents += "> Note: This package used [\(dSwiftModuleName)](\(dSwiftURL)) to generate some of its source code.  While the generated source code should be included and available in this package so building directly with swift is possible, if missing, you may need to download and build with [\(dSwiftModuleName)](\(dSwiftURL))\n\n"
             
             readmeContents += "## Usage\n\n"
             readmeContents += "## Dependencies\n\n"
