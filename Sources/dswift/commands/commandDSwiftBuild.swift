@@ -13,13 +13,16 @@ extension Commands {
     
     /// DSwift command execution
     static func commandDSwiftBuild(_ args: [String]) throws -> Int32 {
+        guard !args.contains("--show-bin-path") && // Do not do any custom processing if we are just showing the bin path
+              !args.contains("--help") && // Do not do any custom processing if we are just showing the help
+              !args.contains("-h") else {
+            return 0
+        }
         var returnCode: Int32 = 0
         //var args = args
         
         // Checkt to see if we're running in verbose mode
         verboseFlag = (args.firstIndex(of: "--verbose") != nil || args.firstIndex(of: "-v") != nil)
-        // Check to see if the help flag was set
-        let showingHelp: Bool = (args.firstIndex(of: "--help") != nil)
         
         // Check to see if we are building test targets
         let doTestTargets: Bool = (args.firstIndex(of: "--build-tests") != nil || args[0].lowercased() == "test")
@@ -29,97 +32,94 @@ extension Commands {
             target = args[idx + 1]
         }
         
-        if !showingHelp { // Don't do any work if we're just showing help
-            
-            
-            verbosePrint("Loading package details")
-            let packageDetails = try PackageDescription(swiftPath: settings.swiftPath)
-            verbosePrint("Package details loaded")
-            
-            let packageURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            //let packageName: String = packageURL.lastPathComponent
-            
-            let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
-            
-            var xcodeProject: XcodeProject? = nil
-            if FileManager.default.fileExists(atPath: xCodeProjectURL.path) {
-                verbosePrint("Loading xcode project")
-                xcodeProject = try XcodeProject(fromURL: xCodeProjectURL)
-                verbosePrint("Loaded xcode project")
-            }
-            
-            
-            
-            /*let generator = try DynamicSourceCodeGenerator(swiftPath: settings.swiftPath,
-                                                           dSwiftModuleName: dSwiftModuleName,
-                                                           dSwiftURL: dSwiftURL,
-                                                           print: generatorPrint,
-                                                           verbosePrint: generatorVerbosePrint,
-                                                           debugPrint: generatorDebugPrint)*/
-            
-            var hasProcessedTarget: Bool = false
-            var projectUpdated: Bool = false
-            var dswiftFilesCreated: Int = 0
-            var dswiftFilesUpdated: Int = 0
-            var dswiftFilesUnchanged: Int = 0
-            var dswiftFilesFailed: Int = 0
-            var dswiftFilesMissingFromXcode: Int = 0
-            for t in packageDetails.targets {
-                var canDoTarget: Bool = (t.type != "test" || doTestTargets)
-                if let tg = target {
-                    canDoTarget = (tg.lowercased() == t.name.lowercased())
-                }
-                
-                if (canDoTarget) {
-                    hasProcessedTarget = true
-                    verbosePrint("Looking at target: \(t.name)")
-                    let targetPath = URL(fileURLWithPath: t.path, isDirectory: true)
-                    let r = try processFolder(generator: generator,
-                                              inTarget: t.name,
-                                              folder: targetPath,
-                                              root: packageURL,
-                                              rebuild: (args.first?.lowercased() == "rebuild"),
-                                              project: xcodeProject)
-                    
-                    dswiftFilesCreated += r.created
-                    dswiftFilesUpdated += r.updated
-                    dswiftFilesUnchanged += r.nochange
-                    dswiftFilesFailed += r.failed
-                    dswiftFilesMissingFromXcode += r.missingFromXcode
-                    
-                    projectUpdated = projectUpdated || r.xcodeProjectUpdated
-                }
-            }
-            if dswiftFilesFailed > 0 { returnCode = 1 }
-            
-            if let p = xcodeProject, projectUpdated {
-                try p.save()
-            }
-            
-            if isRunningFromXcode && !projectUpdated && dswiftFilesMissingFromXcode > 0 {
-                errPrint("Error: Files were generated that are not current in the Xcode project.  Please add them or run \(dswiftAppName) package generate-xcodeproj to update the project before re-building")
-                returnCode = 1
-            }
-            /*if projectUpdated && isRunningFromXcode && xcodeProject != nil {
-                errPrint("Error: New files were added to the Xcode Project.  A new build is required for Xcode to pickup the new files")
-                returnCode = 1
-            }*/
-            if let tg = target,  !hasProcessedTarget {
-                printUsage()
-                var targetError: String = "\tTarget '\(tg)' not found."
-                
-                if packageDetails.targets.count > 0 {
-                    var availableTargets: String = packageDetails.targets.reduce("", { return $0 + ", " + $1.name })
-                    availableTargets.removeFirst()
-                    targetError += " Available targets are: \(availableTargets)"
-                }
-                
-                
-                print(targetError)
-                returnCode = 1 // Go no further.. We were unable to build target
-            }
-            
+        verbosePrint("Loading package details")
+        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath)
+        verbosePrint("Package details loaded")
+        
+        let packageURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        //let packageName: String = packageURL.lastPathComponent
+        
+        let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
+        
+        var xcodeProject: XcodeProject? = nil
+        if FileManager.default.fileExists(atPath: xCodeProjectURL.path) {
+            verbosePrint("Loading xcode project")
+            xcodeProject = try XcodeProject(fromURL: xCodeProjectURL)
+            verbosePrint("Loaded xcode project")
         }
+        
+        
+        
+        /*let generator = try DynamicSourceCodeGenerator(swiftPath: settings.swiftPath,
+                                                       dSwiftModuleName: dSwiftModuleName,
+                                                       dSwiftURL: dSwiftURL,
+                                                       print: generatorPrint,
+                                                       verbosePrint: generatorVerbosePrint,
+                                                       debugPrint: generatorDebugPrint)*/
+        
+        var hasProcessedTarget: Bool = false
+        var projectUpdated: Bool = false
+        var dswiftFilesCreated: Int = 0
+        var dswiftFilesUpdated: Int = 0
+        var dswiftFilesUnchanged: Int = 0
+        var dswiftFilesFailed: Int = 0
+        var dswiftFilesMissingFromXcode: Int = 0
+        for t in packageDetails.targets {
+            var canDoTarget: Bool = (t.type != "test" || doTestTargets)
+            if let tg = target {
+                canDoTarget = (tg.lowercased() == t.name.lowercased())
+            }
+            
+            if (canDoTarget) {
+                hasProcessedTarget = true
+                verbosePrint("Looking at target: \(t.name)")
+                let targetPath = URL(fileURLWithPath: t.path, isDirectory: true)
+                let r = try processFolder(generator: generator,
+                                          inTarget: t.name,
+                                          folder: targetPath,
+                                          root: packageURL,
+                                          rebuild: (args.first?.lowercased() == "rebuild"),
+                                          project: xcodeProject)
+                
+                dswiftFilesCreated += r.created
+                dswiftFilesUpdated += r.updated
+                dswiftFilesUnchanged += r.nochange
+                dswiftFilesFailed += r.failed
+                dswiftFilesMissingFromXcode += r.missingFromXcode
+                
+                projectUpdated = projectUpdated || r.xcodeProjectUpdated
+            }
+        }
+        if dswiftFilesFailed > 0 { returnCode = 1 }
+        
+        if let p = xcodeProject, projectUpdated {
+            try p.save()
+        }
+        
+        if isRunningFromXcode && !projectUpdated && dswiftFilesMissingFromXcode > 0 {
+            errPrint("Error: Files were generated that are not current in the Xcode project.  Please add them or run \(dswiftAppName) package generate-xcodeproj to update the project before re-building")
+            returnCode = 1
+        }
+        /*if projectUpdated && isRunningFromXcode && xcodeProject != nil {
+            errPrint("Error: New files were added to the Xcode Project.  A new build is required for Xcode to pickup the new files")
+            returnCode = 1
+        }*/
+        if let tg = target,  !hasProcessedTarget {
+            printUsage()
+            var targetError: String = "\tTarget '\(tg)' not found."
+            
+            if packageDetails.targets.count > 0 {
+                var availableTargets: String = packageDetails.targets.reduce("", { return $0 + ", " + $1.name })
+                availableTargets.removeFirst()
+                targetError += " Available targets are: \(availableTargets)"
+            }
+            
+            
+            print(targetError)
+            returnCode = 1 // Go no further.. We were unable to build target
+        }
+            
+        
         
         return returnCode
     }
