@@ -238,15 +238,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         return DynamicSourceCodeGenerator.CommonClassName + "\(idx)"
     }
     
-    /*private func buildMangledInitSymble(libraryName: String, className: String) -> String {
-        var rtn: String = DynamicSourceCodeGenerator.MANGLED_INIT_PREFIX
-        rtn += "\(libraryName.count)" + libraryName
-        rtn += "\(className.count)" + className
-        rtn += DynamicSourceCodeGenerator.MANGLED_INIT_SUFFIX
-        return rtn
-    }*/
-    
-    private func which(_ cmd: String) -> String? {
+   private func which(_ cmd: String) -> String? {
         
         guard let envStr = ProcessInfo.processInfo.environment["PATH"] else { return nil }
         
@@ -499,14 +491,39 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         }
     }
     
-    /*public func generateSource(from source: URL, havingEncoding encoding: String.Encoding? = nil, to destination: URL) throws {
-        guard source.isFileURL else { throw Errors.mustBeFileURL(source) }
-        guard destination.isFileURL else { throw Errors.mustBeFileURL(destination) }
-        try generateSource(from: source.path, havingEncoding: encoding, to: destination.path)
+    public func addToXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool {
+        var rtn: Bool = true
+
+        if group.file(atPath: xcodeFile.lastPathComponent) == nil {
+            // Only add the dswift file to the project if its not already there
+            
+            let f = try group.addExisting(xcodeFile,
+                                          copyLocally: true,
+                                          savePBXFile: false) as! XcodeFile
+            
+            //f.languageSpecificationIdentifier = "xcode.lang.swift"
+            f.languageSpecificationIdentifier = self.languageForXcode(file: xcodeFile.path)
+            f.explicitFileType = self.explicitFileTypeForXcode(file: xcodeFile.path)
+            target.sourcesBuildPhase().createBuildFile(for: f)
+            //print("Adding dswift file '\(child.path)'")
+        }
+        let swiftName = try self.generatedFilePath(for: xcodeFile.path).lastPathComponent
+        if let f = group.file(atPath: swiftName) {
+            var canRemoveSource: Bool = true
+            do {
+                let source = try String(contentsOf: URL(fileURLWithPath: f.fullPath))
+                if !source.hasPrefix("//  This file was dynamically generated from") {
+                    rtn = false
+                    errPrint("Error: Source file '\(f.fullPath)' matches build file name for '\(xcodeFile.path)' and is NOT a generated file")
+                    canRemoveSource = false
+                }
+                
+            } catch { }
+            if canRemoveSource {
+                // Remove the generated swift file if its there
+                try f.remove(deletingFiles: false, savePBXFile: false)
+            }
+        }
+        return rtn
     }
-    
-    public func generateSource(from source: URL) throws -> (String, String.Encoding) {
-        guard source.isFileURL else { throw Errors.mustBeFileURL(source) }
-        return try self.generateSource(from: source.path)
-    }*/
 }
