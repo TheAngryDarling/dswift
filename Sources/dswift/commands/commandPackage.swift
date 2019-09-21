@@ -1066,7 +1066,7 @@ extension Commands {
     /// Post execution method for swift package
     static func commandPackage(_ args: [String]) throws -> Int32 {
         
-        var arguments = args
+        let arguments = args
         //arguments.removeFirst() //First parameter is the package param
         //guard let cmd = arguments.last?.lowercased() else { return 0 }
         
@@ -1411,8 +1411,25 @@ extension Commands {
                     returnCode = rCode
                 }
                 
-                //let supportedFilePatterns: String = "*.dswift"
-                for ext in generator.supportedExtensions {
+               
+                let supportedFilePatterns: String =  generator.supportedExtensions.map({ return "*.\($0)"}).joined(separator: " ")
+                let rule = try nT.createBuildRule(name: "Dynamic Swift",
+                                                        compilerSpec: "com.apple.compilers.proxy.script",
+                                                        fileType: XcodeFileType.Pattern.proxy,
+                                                        editable: true,
+                                                        filePatterns: supportedFilePatterns,
+                                                        outputFiles: ["$(INPUT_FILE_DIR)/$(INPUT_FILE_BASE).swift"],
+                                                        outputFilesCompilerFlags: nil,
+                                                        script: "",
+                                                        atLocation: .end)
+                rule.script = """
+                if ! [ -x "$(command -v \(dswiftAppName))" ]; then
+                    echo "Error: \(dswiftAppName) is not installed.  Please visit \(dSwiftURL) to download and install." >&2
+                    exit 1
+                fi
+                \(dswiftAppName) xcodebuild ${INPUT_FILE_PATH}
+                """
+                /*for ext in generator.supportedExtensions {
                     let rule = try nT.createBuildRule(name: "Dynamic Swift (\(ext))",
                                                             compilerSpec: "com.apple.compilers.proxy.script",
                                                             fileType: XcodeFileType.Pattern.proxy,
@@ -1424,12 +1441,12 @@ extension Commands {
                                                             atLocation: .end)
                     rule.script = """
                     if ! [ -x "$(command -v \(dswiftAppName))" ]; then
-                    echo "Error: \(dswiftAppName) is not installed.  Please visit \(dSwiftURL) to download and install." >&2
-                    exit 1
+                        echo "Error: \(dswiftAppName) is not installed.  Please visit \(dSwiftURL) to download and install." >&2
+                        exit 1
                     fi
                     \(dswiftAppName) xcodebuild ${INPUT_FILE_PATH}
                     """
-                }
+                }*/
                
             }
         }
@@ -1523,7 +1540,10 @@ extension Commands {
             
             //if  dswiftSupportedFileExtensions.contains(child.pathExtension.lowercased()), child.isFile /*child.isPathFile*/ {
             if child.isFile && generator.canAddToXcodeProject(file: child.path) {
-                if group.file(atPath: child.lastPathComponent) == nil {
+                if !(try generator.addToXcodeProject(xcodeFile: child, inGroup: group, havingTarget: target)) {
+                    rtn = 1
+                }
+                /*if group.file(atPath: child.lastPathComponent) == nil {
                     // Only add the dswift file to the project if its not already there
                     let f = try group.addExisting(child,
                                                   copyLocally: true,
@@ -1551,7 +1571,7 @@ extension Commands {
                         // Remove the generated swift file if its there
                         try f.remove(deletingFiles: false, savePBXFile: false)
                     }
-                }
+                }*/
                 //target.sourcesBuildPhase().createBuildFile(for: file)
             }
         }
