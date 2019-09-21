@@ -15,7 +15,7 @@ public enum DynamicGeneratorErrors: Error, CustomStringConvertible {
     
     public var description: String {
         switch self {
-            case .noSupportedGenerator(ext: let ext): return "No supported genrator found for extension '\(ext)'"
+            case .noSupportedGenerator(ext: let ext): return "No supported generator found for extension '\(ext)'"
             case .mustBeFileURL(let url):  return "URL '\(url)' must be a file url"
             case .compoundError(let errors):
                 var rtn: String = ""
@@ -40,6 +40,9 @@ public protocol DynamicGenerator {
     /// A method to test if the current file can be added to a Xcode Project File
     func canAddToXcodeProject(file: String) -> Bool
     
+    /// A method to test if the current file can be added to a Xcode Project File
+    func addToXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool
+    
     //func languageForXcode(file: URL) -> String?
     func languageForXcode(file: String) -> String?
     
@@ -50,6 +53,19 @@ public protocol DynamicGenerator {
     func generateSource(from: String, havingEncoding: String.Encoding?, to: String) throws
     /// Method for generating a source code from the given file
     func generateSource(from source: URL, havingEncoding encoding: String.Encoding?, to destination: URL) throws
+    /// Returns the generated source file path for the given source
+    func generatedFilePath(for source: String) throws -> String
+    /// Returns the generated source file path for the given source
+    func generatedFilePath(for source: URL) throws -> URL
+    /// Check to see if generated source code file exists for the given file
+    func generatedFileExists(for source: String) throws -> Bool
+    /// Check to see if generated source code file exists for the given file
+    func generatedFileExists(for source: URL) throws -> Bool
+    /// Checks to see if source code generation is required
+    func generateSourceCodeRequired(for source: String) throws -> Bool
+    /// Checks to see if source code generation is required
+    func generateSourceCodeRequired(for source: URL) throws -> Bool
+    
     /// Initializer for creating a new generator
     init(_ swiftPath: String,
          _ dSwiftModuleName: String,
@@ -67,6 +83,43 @@ public extension DynamicGenerator {
          verbosePrint: @escaping PRINT_SIG = { (message, filename, line, funcname) -> Void in return },
          debugPrint: @escaping PRINT_SIG = { (message, filename, line, funcname) -> Void in Swift.debugPrint(message, terminator: "") }) throws {
         try self.init(swiftPath, dSwiftModuleName, dSwiftURL, print, verbosePrint, debugPrint)
+    }
+    
+    func generatedFilePath(for source: String) throws -> String {
+        return source.deletingPathExtension + ".swift"
+    }
+    func generatedFilePath(for source: URL) throws -> URL {
+        return source.deletingPathExtension().appendingPathExtension("swift")
+    }
+    
+    func generatedFileExists(for source: String) throws -> Bool {
+        let destination = try generatedFilePath(for: source)
+        return FileManager.default.fileExists(atPath: destination)
+    }
+    func generatedFileExists(for source: URL) throws -> Bool {
+        return try generatedFileExists(for: source.path)
+    }
+    func generateSourceCodeRequired(for source: String) throws -> Bool {
+        let source = URL(fileURLWithPath: source)
+        let destination = try generatedFilePath(for: source)
+        
+        // If the generated file does not exist, then return true
+        guard FileManager.default.fileExists(atPath: destination.path) else { return true }
+        // Get the modification dates otherwise return true to rebuild
+        guard let srcMod = source.pathModificationDate, let desMod = destination.pathModificationDate else {
+            return true
+        }
+        // Source is newer than destination, meaning we must rebuild
+        guard srcMod <= desMod else { return true }
+        
+        var encoding: String.Encoding = .utf8
+        let fileContents = try String(contentsOf: destination, usedEncoding: &encoding)
+        if fileContents.contains("// Failed to generate source code.") { return true }
+        return false
+        
+    }
+    func generateSourceCodeRequired(for source: URL) throws -> Bool {
+        return try generateSourceCodeRequired(for: source.path)
     }
     
     func generateSource(from source: String, to destination: String) throws {
@@ -120,8 +173,8 @@ public extension DynamicGenerator {
                 }
                 guard child.isPathFile else { continue }
                 
-                if _extensions.contains(child.pathExtension.lowercased()) {
-                    let generatedFile = child.deletingPathExtension().appendingPathExtension("swift")
+                if self.isSupportedFile(child) {
+                    let generatedFile = try self.generatedFilePath(for: child)
                     if let gR = try? generatedFile.checkResourceIsReachable(), gR {
                         
                         do {
@@ -182,6 +235,57 @@ public class GroupGenerator: DynamicGenerator {
         }
     }
     
+    private func getGenerator(for source: String) -> DynamicGenerator? {
+        for generator in self.generators {
+            if generator.isSupportedFile(source) {
+               return generator
+            }
+        }
+        return nil
+    }
+    
+    private func getGenerator(for source: URL) -> DynamicGenerator? {
+        return self.getGenerator(for: source.path)
+    }
+    
+    public func generatedFilePath(for source: String) throws -> String {
+        guard let generator = self.getGenerator(for: source) else {
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+        }
+        return try generator.generatedFilePath(for: source)
+    }
+    public func generatedFilePath(for source: URL) throws -> URL {
+        guard let generator = self.getGenerator(for: source) else {
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+        }
+        return try generator.generatedFilePath(for: source)
+    }
+    
+    public func generatedFileExists(for source: String) throws -> Bool {
+        guard let generator = self.getGenerator(for: source) else {
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+        }
+        return try generator.generatedFileExists(for: source)
+    }
+    public func generatedFileExists(for source: URL) throws -> Bool {
+        guard let generator = self.getGenerator(for: source) else {
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+        }
+        return try generator.generatedFileExists(for: source)
+    }
+    public func generateSourceCodeRequired(for source: String) throws -> Bool {
+        guard let generator = self.getGenerator(for: source) else {
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+        }
+        return try generator.generateSourceCodeRequired(for: source)
+    }
+    public func generateSourceCodeRequired(for source: URL) throws -> Bool {
+        guard let generator = self.getGenerator(for: source) else {
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+        }
+        return try generator.generateSourceCodeRequired(for: source)
+    }
+    
     public func clean(folder: URL) throws {
         var errors: [Error] = []
         for generator in self.generators {
@@ -196,44 +300,38 @@ public class GroupGenerator: DynamicGenerator {
         }
     }
     public func canAddToXcodeProject(file: String) -> Bool {
-        for generator in self.generators {
-            if generator.isSupportedFile(file) {
-                if generator.canAddToXcodeProject(file: file) { return true }
-            }
+        guard let generator = self.getGenerator(for: file) else {
+           return false
         }
-        return false
+        return generator.canAddToXcodeProject(file: file)
+    }
+    
+    public func addToXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool {
+        guard let generator = self.getGenerator(for: xcodeFile.path) else {
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: xcodeFile.pathExtension.lowercased())
+        }
+        return try generator.addToXcodeProject(xcodeFile: xcodeFile, inGroup: group, havingTarget: target)
     }
     public func languageForXcode(file: String) -> String? {
-        for generator in self.generators {
-            if generator.isSupportedFile(file) {
-                if let lng = generator.languageForXcode(file: file) {
-                    return lng
-                }
-            }
+        guard let generator = self.getGenerator(for: file) else {
+            return nil
         }
-        return nil
+        return generator.languageForXcode(file: file)
     }
     
     public func explicitFileTypeForXcode(file: String) -> XcodeFileType? {
-        for generator in self.generators {
-            if generator.isSupportedFile(file) {
-                if let type = generator.explicitFileTypeForXcode(file: file) {
-                    return type
-                }
-            }
+        guard let generator = self.getGenerator(for: file) else {
+            return nil
         }
-        return nil
+        return generator.explicitFileTypeForXcode(file: file)
     }
     
     public func generateSource(from source: String, havingEncoding: String.Encoding?, to destination: String) throws {
-        for generator in self.generators {
-            if generator.isSupportedFile(source) {
-                verbosePrint("Generating source code from '\(source)' using \(type(of: generator)) generator")
-                try generator.generateSource(from: source, havingEncoding: havingEncoding, to: destination)
-                return
-            }
+        guard let generator = self.getGenerator(for: source) else {
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
         }
-        let ext = source.pathExtension.lowercased()
-        throw DynamicGeneratorErrors.noSupportedGenerator(ext: ext)
+        verbosePrint("Generating source code from '\(source)' using \(type(of: generator)) generator")
+        return try generator.generateSource(from: source, havingEncoding: havingEncoding, to: destination)
+        
     }
 }
