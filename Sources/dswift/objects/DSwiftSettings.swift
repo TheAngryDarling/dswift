@@ -186,9 +186,10 @@ extension DSwiftSettings: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         #if NO_DSWIFT_PARAMS
-        self.swiftPath = try container.decodeIfPresent(String.self, forKey: .swiftPath) ?? DSwiftSettings.defaultSwiftPath
-        #else
         self.swiftPath = DSwiftSettings.defaultSwiftPath
+        
+        #else
+        self.swiftPath = try container.decodeIfPresent(String.self, forKey: .swiftPath) ?? DSwiftSettings.defaultSwiftPath
         #endif
         self.xcodeResourceSorting = try container.decodeIfPresent(FileResourceSorting.self, forKey: .xcodeResourceSorting) ?? FileResourceSorting.none
         self.license = try container.decodeIfPresent(License.self, forKey: .license) ?? .none
