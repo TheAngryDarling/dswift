@@ -14,7 +14,7 @@ extension Commands {
     /// DSwift command execution
     static func commandDSwiftBuild(_ args: [String]) throws -> Int32 {
         var returnCode: Int32 = 0
-        var args = args
+        //var args = args
         
         // Checkt to see if we're running in verbose mode
         verboseFlag = (args.firstIndex(of: "--verbose") != nil || args.firstIndex(of: "-v") != nil)
@@ -162,24 +162,10 @@ extension Commands {
                                     rebuild: Bool,
                                     project: XcodeProject?) throws -> (destination: URL, updated: Bool, created: Bool) {
         verbosePrint("Processing file \(source.path)")
-        let destination = source.deletingPathExtension().appendingPathExtension("swift")
+        let destination = try generator.generatedFilePath(for: source)
         let destExists = FileManager.default.fileExists(atPath: destination.path)
         var doBuild: Bool = !destExists
-        if !doBuild {
-            
-            if let srcMod = source.pathModificationDate, let desMod = destination.pathModificationDate {
-                if srcMod > desMod { doBuild = true }
-                else {
-                    let fileContents = try String(contentsOf: destination, encoding: .utf8)
-                    if fileContents.contains("// Failed to generate source code.") {
-                        doBuild = true
-                    }
-                }
-            } else {
-                doBuild = true
-            }
-            
-        }
+        if !doBuild { doBuild = try generator.generateSourceCodeRequired(for: source) }
         
         //doBuild = true
         var updated: Bool = false
@@ -200,23 +186,8 @@ extension Commands {
                 if destExists { updated = true }
                 else { created = true }
             } catch {
-                /*if isRunningFromXcode {
-                    // Xcode gives error if files or used code go missing and won't call build script again until they are back,
-                    // So we won't delete the file we'll just add a waring at the top of the file
-                    var fileContents = try String(contentsOf: destination, encoding: sourceEncoding ?? .utf8)
-                    
-                    let badFileText: String = """
-                    // Failed to generate source code.
-                    // Please fix errors in \(source.lastPathComponent) and rebuild
-                    
-                    
-                    """
-                    fileContents = badFileText + fileContents
-                    try? fileContents.write(to: destination, atomically: true, encoding: sourceEncoding ?? .utf8)
-                } else {*/
-                    // Removing destination because something failed
-                    try? FileManager.default.removeItem(at: destination)
-                //}
+                // Removing destination because something failed
+                try? FileManager.default.removeItem(at: destination)
                 throw error
             }
         }
@@ -269,42 +240,6 @@ extension Commands {
                             verbosePrint("No updates needed for file '\(modifications.destination.path)'")
                             nochange += 1
                         }
-                        
-                        // Must add new generated file here
-                        /*if let p = project, let target = p.targets.first(where: { return $0.name == target}) {
-                            
-                            let localURL = modifications.destination.relative(to: root)
-                            let parentGroupURL = localURL.deletingLastPathComponent()
-                            if let parentGroup = p.resources.group(atPath: parentGroupURL.path) {
-                                
-                                if parentGroup.file(atPath: localURL.lastPathComponent) == nil {
-                                    missingFromXcode += 1
-                                    if  !isRunningFromXcode {
-                                        var insertLocation: AddLocation<XcodeFileResource> = .end
-                                        if let dswiftFile = parentGroup.first(where: { $0.name == child.lastPathComponent}) {
-                                            insertLocation = .after(dswiftFile)
-                                        }
-                                        
-                                        try parentGroup.addExisting(XcodeFileSystemURLResource(file: modifications.destination.path),
-                                                                    includeInTargets: [target],
-                                                                    atLocation: insertLocation,
-                                                                    savePBXFile: false)
-                                        xcodeProjectUpdated = true
-                                    }/* else if let derivedDir = ProcessInfo.processInfo.environment["DERIVED_FILE_DIR"] {
-                                        print("Copying '\(modifications.destination.path)' to '\(derivedDir)'")
-                                        let derivedDirURL = URL(fileURLWithPath: derivedDir)
-                                        if !FileManager.default.fileExists(atPath: derivedDirURL.path) {
-                                            try FileManager.default.createDirectory(at: derivedDirURL, withIntermediateDirectories: true)
-                                        }
-                                        if !FileManager.default.fileExists(atPath: derivedDirURL.path) {
-                                            try FileManager.default.copyItem(at: modifications.destination, to: derivedDirURL)
-                                        } else {
-                                            _ = try FileManager.default.replaceItemAt(derivedDirURL, withItemAt: modifications.destination)
-                                        }
-                                    }*/
-                                }
-                            }
-                        }*/
                         
                         
                     } catch {
