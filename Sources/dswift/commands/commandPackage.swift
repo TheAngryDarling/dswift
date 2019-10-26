@@ -1125,48 +1125,6 @@ extension Commands {
         
     }
     
-    
-    /// Clean a folder of any swift files build from dswift
-    /*static func cleanFolder(fileExtensions: [String], folder: URL) throws {
-        //verbosePrint("Looking at path: \(folder.path)")
-        let children = try FileManager.default.contentsOfDirectory(at: folder,
-                                                                   includingPropertiesForKeys: nil)
-        var folders: [URL] = []
-        for child in children {
-            if let r = try? child.checkResourceIsReachable(), r {
-                
-                guard !child.isPathDirectory else {
-                    folders.append(child)
-                    continue
-                }
-                guard child.isPathFile else { continue }
-                
-                if fileExtensions.contains(child.pathExtension.lowercased()) {
-                    let generatedFile = child.deletingPathExtension().appendingPathExtension("swift")
-                    if let gR = try? generatedFile.checkResourceIsReachable(), gR {
-                        
-                        do {
-                            
-                            try FileManager.default.removeItem(at: generatedFile)
-                            verbosePrint("Removed generated file '\(generatedFile.path)'")
-                            
-                        } catch {
-                            print("Unable to remove generated file '\(generatedFile.path)'")
-                            print(error)
-                        }
-                    }
-                }
-            }
-            
-            
-            
-        }
-        
-        for subFolder in folders {
-            try cleanFolder(fileExtensions: fileExtensions, folder: subFolder)
-        }
-    }*/
-    
     /// swift package clean catcher
     private static func commandPackageClean(_ args: [String], _ retCode: Int32) throws -> Int32 {
         try cleanDSwiftBuilds()
@@ -1429,24 +1387,6 @@ extension Commands {
                 fi
                 \(dswiftAppName) xcodebuild ${INPUT_FILE_PATH}
                 """
-                /*for ext in generator.supportedExtensions {
-                    let rule = try nT.createBuildRule(name: "Dynamic Swift (\(ext))",
-                                                            compilerSpec: "com.apple.compilers.proxy.script",
-                                                            fileType: XcodeFileType.Pattern.proxy,
-                                                            editable: true,
-                                                            filePatterns: "*.\(ext)", //"*.dswift",
-                                                            outputFiles: ["$(INPUT_FILE_DIR)/$(INPUT_FILE_BASE).swift"],
-                                                            outputFilesCompilerFlags: nil,
-                                                            script: "",
-                                                            atLocation: .end)
-                    rule.script = """
-                    if ! [ -x "$(command -v \(dswiftAppName))" ]; then
-                        echo "Error: \(dswiftAppName) is not installed.  Please visit \(dSwiftURL) to download and install." >&2
-                        exit 1
-                    fi
-                    \(dswiftAppName) xcodebuild ${INPUT_FILE_PATH}
-                    """
-                }*/
                
             }
         }
@@ -1459,13 +1399,23 @@ extension Commands {
         var indexAfterLastPackagFile: Int = 1
         
         
-        let children = try xcodeProject.fsProvider.contentsOfDirectory(at: xcodeProject.projectFolder)
+        var children = try xcodeProject.fsProvider.contentsOfDirectory(at: xcodeProject.projectFolder)
+        children.sort(by: { return $0.path < $1.path})
         for child in children {
-            if child.lastPathComponent.compare("^Package\\@swift-.*\\.swift$", options: .regularExpression) == .orderedSame {
-                try xcodeProject.resources.addExisting(child,
-                                                       atLocation: .index(indexAfterLastPackagFile),
-                                                       savePBXFile: false)
-                indexAfterLastPackagFile += 1
+            let fileName = child.lastPathComponent
+            if fileName.hasPrefix("Package@swift-") && fileName.hasSuffix(".swift") {
+                var packageVersion: String = fileName
+                packageVersion.removeFirst("Package@swift-".count)
+                packageVersion.removeLast(".swift".count)
+                if let _ = Double(packageVersion) {
+                    if xcodeProject.resources.file(atPath: child.lastPathComponent) == nil {
+                        verbosePrint("Adding \(fileName) to project file")
+                        try xcodeProject.resources.addExisting(child,
+                                                               atLocation: .index(indexAfterLastPackagFile),
+                                                               savePBXFile: false)
+                        indexAfterLastPackagFile += 1
+                    }
+                }
             }
         }
         
@@ -1474,27 +1424,29 @@ extension Commands {
         for file in additionalFiles {
             let filePath = xcodeProject.projectFolder.appendingFileComponent(file)
             if try xcodeProject.fsProvider.itemExists(at: filePath) {
+                var group: XcodeGroup = xcodeProject.resources
+                var usingRootGroup: Bool = true
                 if let idx = file.lastIndex(of: "/") { // If we find that the file is in a sub folder we must find the sub group
                     let groupPath = String(file[..<idx])
                     guard let grp = xcodeProject.resources.group(atPath: groupPath) else {
                         errPrint("Unable to find group '\(groupPath)' to add file \(file.lastPathComponent)")
                         continue
                     }
-                   try grp.addExisting(filePath, atLocation: .end, savePBXFile: false)
-                } else {
-                    try xcodeProject.resources.addExisting(filePath,
-                                                           atLocation: .index(indexAfterLastPackagFile),
-                                                           savePBXFile: false)
-                    indexAfterLastPackagFile += 1
+                    usingRootGroup = false
+                    group = grp
                 }
-                
+                if group.file(atPath: file.lastPathComponent) == nil {
+                    var addLocation: AddLocation<XcodeFileResource> = .end
+                    if usingRootGroup {
+                        addLocation = .index(indexAfterLastPackagFile)
+                        indexAfterLastPackagFile += 1
+                    }
+                    try group.addExisting(filePath, atLocation: addLocation, savePBXFile: false)
+                }
                 
                 
             }
         }
-        
-        
-        
         
         //debugPrint(xcodeProject)
         try xcodeProject.save()
@@ -1509,19 +1461,15 @@ extension Commands {
                                                 usingProvider provider: XcodeFileSystemProvider) throws -> Int32 {
         func hasDSwiftSubFiles(in url: XcodeFileSystemURLResource, usingProvider provider: XcodeFileSystemProvider) throws -> Bool {
             let children = try provider.contentsOfDirectory(at: url)
-            /*let children = try FileManager.default.contentsOfDirectory(atPath: url.path).map {
-                return url.appendingPathComponent($0)
-            }*/
+
             for child in children {
                 // Check current dir for files
-                //if dswiftSupportedFileExtensions.contains(child.pathExtension.lowercased()), child.isFile /*child.isPathFile*/ {
                 if child.isFile && generator.isSupportedFile(child.path) {
                     return true
                 }
             }
             for child in children {
                 // Check sub dir for files
-                //if child.isPathDirectory {
                 if child.isDirectory {
                     if (try hasDSwiftSubFiles(in: child, usingProvider: provider)) { return true }
                 }
@@ -1532,47 +1480,14 @@ extension Commands {
         var rtn: Int32 = 0
         
         let children = try provider.contentsOfDirectory(at: url)
-        /*let children = try FileManager.default.contentsOfDirectory(atPath: url.path).map {
-            return url.appendingPathComponent($0)
-        }*/
         
         for child in children {
             
             //if  dswiftSupportedFileExtensions.contains(child.pathExtension.lowercased()), child.isFile /*child.isPathFile*/ {
             if child.isFile && generator.canAddToXcodeProject(file: child.path) {
-                if !(try generator.addToXcodeProject(xcodeFile: child, inGroup: group, havingTarget: target)) {
+                if !(try generator.updateXcodeProject(xcodeFile: child, inGroup: group, havingTarget: target)) {
                     rtn = 1
                 }
-                /*if group.file(atPath: child.lastPathComponent) == nil {
-                    // Only add the dswift file to the project if its not already there
-                    let f = try group.addExisting(child,
-                                                  copyLocally: true,
-                                                  savePBXFile: false) as! XcodeFile
-                    
-                    //f.languageSpecificationIdentifier = "xcode.lang.swift"
-                    f.languageSpecificationIdentifier = generator.languageForXcode(file: child.path)
-                    f.explicitFileType = generator.explicitFileTypeForXcode(file: child.path)
-                    target.sourcesBuildPhase().createBuildFile(for: f)
-                    //print("Adding dswift file '\(child.path)'")
-                }
-                let swiftName = NSString(string: child.lastPathComponent).deletingPathExtension + ".swift"
-                if let f = group.file(atPath: swiftName) {
-                    var canRemoveSource: Bool = true
-                    do {
-                        let source = try String(contentsOf: URL(fileURLWithPath: f.fullPath))
-                        if !source.hasPrefix("//  This file was dynamically generated from") {
-                            rtn = 1
-                            errPrint("Error: Source file '\(f.fullPath)' matches build file name for '\(child.path)' and is NOT a generated file")
-                            canRemoveSource = false
-                        }
-                        
-                    } catch { }
-                    if canRemoveSource {
-                        // Remove the generated swift file if its there
-                        try f.remove(deletingFiles: false, savePBXFile: false)
-                    }
-                }*/
-                //target.sourcesBuildPhase().createBuildFile(for: file)
             }
         }
         
