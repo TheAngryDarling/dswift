@@ -7,11 +7,11 @@
 
 import Foundation
 
-let verboseOverrideFlag: Bool = false
+//let verboseOverrideFlag: Bool = false
 /// Indicator if we are running in verbose mode
-var verboseFlag: Bool = false
+//var verboseFlag: Bool = false
 func verbosePrint(_ items: Any..., separator: String = "", terminator: String = "\n") {
-    if verboseFlag || verboseOverrideFlag {
+    if settings.isVerbose {
         var msg: String = ""
         for (i, v) in items.enumerated() {
             if i > 0 { msg += separator }
@@ -43,7 +43,7 @@ func errPrint(_ items: Any..., separator: String = "", terminator: String = "\n"
 }
 
 func verboseErrPrint(_ items: Any..., separator: String = "", terminator: String = "\n") {
-    if verboseFlag {
+    if settings.isVerbose {
         var msg: String = ""
         for (i, v) in items.enumerated() {
             if i > 0 { msg += separator }
