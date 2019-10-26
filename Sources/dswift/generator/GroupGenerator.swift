@@ -41,7 +41,7 @@ public protocol DynamicGenerator {
     func canAddToXcodeProject(file: String) -> Bool
     
     /// A method to test if the current file can be added to a Xcode Project File
-    func addToXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool
+    func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool
     
     //func languageForXcode(file: URL) -> String?
     func languageForXcode(file: String) -> String?
@@ -62,9 +62,9 @@ public protocol DynamicGenerator {
     /// Check to see if generated source code file exists for the given file
     func generatedFileExists(for source: URL) throws -> Bool
     /// Checks to see if source code generation is required
-    func generateSourceCodeRequired(for source: String) throws -> Bool
+    func requiresSourceCodeGeneration(for source: String) throws -> Bool
     /// Checks to see if source code generation is required
-    func generateSourceCodeRequired(for source: URL) throws -> Bool
+    func requiresSourceCodeGeneration(for source: URL) throws -> Bool
     
     /// Initializer for creating a new generator
     init(_ swiftPath: String,
@@ -99,27 +99,34 @@ public extension DynamicGenerator {
     func generatedFileExists(for source: URL) throws -> Bool {
         return try generatedFileExists(for: source.path)
     }
-    func generateSourceCodeRequired(for source: String) throws -> Bool {
+    func requiresSourceCodeGeneration(for source: String) throws -> Bool {
         let source = URL(fileURLWithPath: source)
         let destination = try generatedFilePath(for: source)
         
         // If the generated file does not exist, then return true
         guard FileManager.default.fileExists(atPath: destination.path) else { return true }
         // Get the modification dates otherwise return true to rebuild
+        verbosePrint("[\(source.lastPathComponent), \(destination.lastPathComponent)] Getting file modification dates")
         guard let srcMod = source.pathModificationDate, let desMod = destination.pathModificationDate else {
             return true
         }
         // Source is newer than destination, meaning we must rebuild
+        verbosePrint("[\(source.lastPathComponent), \(destination.lastPathComponent)] Comparing modification dates")
         guard srcMod <= desMod else { return true }
         
-        var encoding: String.Encoding = .utf8
-        let fileContents = try String(contentsOf: destination, usedEncoding: &encoding)
+        verbosePrint("[\(destination.lastPathComponent)] Checking for failed comment")
+        verbosePrint("[\(destination.lastPathComponent)] Loading file")
+        verbosePrint("[\(destination.lastPathComponent)] Reachable: \(try destination.checkResourceIsReachable())")
+        var enc: String.Encoding = .utf8
+        let fileContents = try String(contentsOf: destination, foundEncoding: &enc)
+        verbosePrint("[\(destination.lastPathComponent)] Looking at file")
         if fileContents.contains("// Failed to generate source code.") { return true }
+        verbosePrint("[\(destination.lastPathComponent)] Generated source is up-to-date")
         return false
         
     }
-    func generateSourceCodeRequired(for source: URL) throws -> Bool {
-        return try generateSourceCodeRequired(for: source.path)
+    func requiresSourceCodeGeneration(for source: URL) throws -> Bool {
+        return try requiresSourceCodeGeneration(for: source.path)
     }
     
     func generateSource(from source: String, to destination: String) throws {
@@ -273,17 +280,17 @@ public class GroupGenerator: DynamicGenerator {
         }
         return try generator.generatedFileExists(for: source)
     }
-    public func generateSourceCodeRequired(for source: String) throws -> Bool {
+    public func requiresSourceCodeGeneration(for source: String) throws -> Bool {
         guard let generator = self.getGenerator(for: source) else {
             throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
         }
-        return try generator.generateSourceCodeRequired(for: source)
+        return try generator.requiresSourceCodeGeneration(for: source)
     }
-    public func generateSourceCodeRequired(for source: URL) throws -> Bool {
+    public func requiresSourceCodeGeneration(for source: URL) throws -> Bool {
         guard let generator = self.getGenerator(for: source) else {
             throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
         }
-        return try generator.generateSourceCodeRequired(for: source)
+        return try generator.requiresSourceCodeGeneration(for: source)
     }
     
     public func clean(folder: URL) throws {
@@ -306,11 +313,12 @@ public class GroupGenerator: DynamicGenerator {
         return generator.canAddToXcodeProject(file: file)
     }
     
-    public func addToXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool {
+    public func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool {
         guard let generator = self.getGenerator(for: xcodeFile.path) else {
             throw DynamicGeneratorErrors.noSupportedGenerator(ext: xcodeFile.pathExtension.lowercased())
         }
-        return try generator.addToXcodeProject(xcodeFile: xcodeFile, inGroup: group, havingTarget: target)
+        verbosePrint("\(type(of: self)).updateXcodeProject Found Generator \(type(of: generator)) for file '\(xcodeFile.path)'")
+        return try generator.updateXcodeProject(xcodeFile: xcodeFile, inGroup: group, havingTarget: target)
     }
     public func languageForXcode(file: String) -> String? {
         guard let generator = self.getGenerator(for: file) else {
