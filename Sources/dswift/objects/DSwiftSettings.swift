@@ -8,6 +8,7 @@
 import Foundation
 import XcodeProj
 import BasicCodableHelpers
+import SwiftPatches
 
 /// Settings structure for the config file
 struct DSwiftSettings {
@@ -19,12 +20,49 @@ struct DSwiftSettings {
         case regenerateXcodeProject
         case repository
         case authorName
+        case authorContacts
         case lockGenFiels = "lockGeneratedFiles"
+        case verboseMode
+        case includeGeneratedFilesInXcodeProject
     }
     
     enum FileResourceSorting: String, Codable {
         case none
         case sorted
+    }
+    
+    /// Contact information for the developer
+    enum Contact {
+        case email(String)
+        case address(String)
+        case phone(String)
+        case url(String)
+        
+        var isEmail: Bool {
+            guard case Contact.email(_) = self else { return false }
+            return true
+        }
+        var isAddress: Bool {
+            guard case Contact.address(_) = self else { return false }
+            return true
+        }
+        var isPhone: Bool {
+            guard case Contact.phone(_) = self else { return false }
+            return true
+        }
+        var isURL: Bool {
+            guard case Contact.url(_) = self else { return false }
+            return true
+        }
+        
+        internal var string: String {
+            switch self {
+                case .email(let string): return string
+                case .address(let string): return string
+                case .phone(let string): return string
+                case .url(let string): return string
+            }
+        }
     }
     
     /// The difference supported license types
@@ -81,6 +119,19 @@ struct DSwiftSettings {
                 case .mit: return "yellow"
                 case .unlicense: return "blue"
                 default: return ""
+            }
+        }
+        
+        var readmeText: String {
+            switch self {
+                case .apache2_0: return Licenses.apache2_0_README()
+                case .gnuGPL3_0: return Licenses.gnuGPL3_0_README()
+                case .gnuAGPL3_0: return Licenses.gnuAGPL3_0_README()
+                case .gnuLGPL3_0: return Licenses.gnuLGPL3_0_README()
+                case .mozilla2_0: return Licenses.mozilla2_0_README()
+                case .mit: return Licenses.mit_README()
+                case .unlicense: return Licenses.unlicense_README()
+                default: return Licenses.defaultLicenseReadMe()
             }
         }
         
@@ -167,8 +218,21 @@ struct DSwiftSettings {
     let repository: Repository?
     /// Author Name for use in README.md file when generated
     let authorName: String?
+    /// Author Contact for use in README.md file when generated
+    //let authorContacts: [Contact]
     /// Lock generated files.  Locks any generated files from being modified
     let lockGenFiles: Bool
+    /// Indicator if we should be in verbose mode
+    let verboseMode: Bool
+    /// Indicator if we should be in verbose mode (checks env variable dswiftVerbose and then checks verboseMode property)
+    var isVerbose: Bool {
+        guard let envVar = ProcessInfo.processInfo.environment["dswiftVerbose"] else {
+            return self.verboseMode
+        }
+        return (envVar.lowercased() == "true")
+    }
+    /// Indicator if generated source code files should be included in Xcode Projects
+    let includeGeneratedFilesInXcodeProject: Bool
     
     public init() {
         self.swiftPath = DSwiftSettings.defaultSwiftPath
@@ -178,7 +242,10 @@ struct DSwiftSettings {
         self.regenerateXcodeProject = false
         self.repository = nil
         self.authorName = nil
+        //self.authorContacts = []
         self.lockGenFiles = true
+        self.verboseMode = false
+        self.includeGeneratedFilesInXcodeProject = false
     }
 }
 
@@ -197,15 +264,21 @@ extension DSwiftSettings: Codable {
         self.regenerateXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .regenerateXcodeProject) ?? false
         self.repository = try container.decodeIfPresent(Repository.self, forKey: .repository)
         self.authorName = try container.decodeIfPresent(String.self, forKey: .authorName)
+        //self.authorContacts = try container.decodeFromSingleOrArrayIfPresentWithEmptyDefault(Contact.self, forKey: .authorContacts)
         self.lockGenFiles = try container.decodeIfPresent(Bool.self, forKey: .lockGenFiels, withDefaultValue: true)
+        self.verboseMode = try container.decodeIfPresent(Bool.self, forKey: .verboseMode, withDefaultValue: false)
+        self.includeGeneratedFilesInXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .includeGeneratedFilesInXcodeProject, withDefaultValue: false)
         
     }
     
     public init(from url: URL) throws {
         let jsonDecoder = JSONDecoder()
         //let dta = try Data(contentsOf: url.standardizedFileURL.resolvingSymlinksInPath())
+        //var encoding: String.Encoding = .utf8
+        //var str: String = try String(contentsOf: url.standardizedFileURL.resolvingSymlinksInPath(), usedEncoding: &encoding)
         var encoding: String.Encoding = .utf8
-        var str: String = try String(contentsOf: url.standardizedFileURL.resolvingSymlinksInPath(), usedEncoding: &encoding)
+        var str: String = try String(contentsOf: url.standardizedFileURL.resolvingSymlinksInPath(), foundEncoding: &encoding)
+        
         
         let commentTypes: [String] = ["//", "#"]
         for comment in commentTypes {
@@ -243,6 +316,9 @@ extension DSwiftSettings: Codable {
         try container.encode(self.regenerateXcodeProject, forKey: .regenerateXcodeProject )
         try container.encodeIfPresent(self.repository, forKey: .repository)
         try container.encodeIfPresent(self.authorName, forKey: .authorName)
+        //try container.encodeToSingleOrArray(self.authorContacts, forKey: .authorContacts)
+        try container.encode(self.verboseMode, forKey: .verboseMode, ifNot: false)
+        try container.encode(self.includeGeneratedFilesInXcodeProject, forKey: .includeGeneratedFilesInXcodeProject, ifNot: false)
     }
 }
 
@@ -299,37 +375,62 @@ extension DSwiftSettings.License: Codable {
                     let lURL = URL(fileURLWithPath: NSString(string: path).expandingTildeInPath)
                     try FileManager.default.copyItem(at: lURL, to: url)
                 } else {
-                    var enc: String.Encoding = .utf8
-                    let str = try String(contentsOf: licenseURL, usedEncoding: &enc)
-                    try str.write(to: url, atomically: true, encoding: enc)
+                    //var enc: String.Encoding = .utf8
+                    //let str = try String(contentsOf: licenseURL, usedEncoding: &enc)
+                    //try str.write(to: url, atomically: true, encoding: enc)
+                    let dta = try Data(contentsOf: licenseURL)
+                    try dta.write(to: url, options: .atomic)
                 }
             case .apache2_0:
                 print("Creating License.md")
-                try Licenses.apache2_0.write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.apache2_0().write(to: url, atomically: true, encoding: .utf8)
             case .gnuGPL3_0:
                 print("Creating License.md")
-                try Licenses.gnuGPL3_0.write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.gnuGPL3_0().write(to: url, atomically: true, encoding: .utf8)
             case .gnuAGPL3_0:
                 print("Creating License.md")
-                try Licenses.gnuAGPL3_0.write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.gnuAGPL3_0().write(to: url, atomically: true, encoding: .utf8)
             case .gnuLGPL3_0:
                 print("Creating License.md")
-                try Licenses.gnuLGPL3_0.write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.gnuLGPL3_0().write(to: url, atomically: true, encoding: .utf8)
             case .mozilla2_0:
                 print("Creating License.md")
-                try Licenses.mozilla2_0.write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.mozilla2_0().write(to: url, atomically: true, encoding: .utf8)
             case .mit:
                 print("Creating License.md")
-                try Licenses.mit.write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.mit().write(to: url, atomically: true, encoding: .utf8)
             case .unlicense:
                 print("Creating License.md")
-                try Licenses.unlicense.write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.unlicense().write(to: url, atomically: true, encoding: .utf8)
             default: break
         }
     }
 }
 
-
+extension DSwiftSettings.Contact: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let address = try? container.decode([String].self) {
+            self = .address(address.joined(separator: "\n"))
+        } else {
+            let str = try container.decode(String.self)
+            if str.hasPrefix("mailto:") {
+                self = .email(String(str.suffix(from: str.index(str.startIndex, offsetBy: "mailto:".count))))
+            } else if str.hasPrefix("tel:") {
+                self = .phone(String(str.suffix(from: str.index(str.startIndex, offsetBy: "tel:".count))))
+            } else {
+                self = .url(str)
+            }
+        }
+    }
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        if self.isEmail { try container.encode("mailto:" + self.string) }
+        else if self.isPhone { try container.encode("tel:" + self.string) }
+        else if self.isAddress { try container.encode(self.string.split(separator: "\n").map(String.init)) }
+        else { try container.encode(self.string) }
+    }
+}
 extension DSwiftSettings.Repository: Codable {
     public init(from decoder: Decoder) throws {
         if let container = try? decoder.singleValueContainer() {
@@ -451,9 +552,11 @@ extension DSwiftSettings.ReadMe: Codable {
                 }
                 try FileManager.default.copyItem(at: rURL, to: url)
             } else {
-                var enc: String.Encoding = .utf8
-                let str = try String(contentsOf: rURL, usedEncoding: &enc)
-                try str.write(to: url, atomically: true, encoding: enc)
+                //var enc: String.Encoding = .utf8
+                //let str = try String(contentsOf: rURL, usedEncoding: &enc)
+                //try str.write(to: url, atomically: true, encoding: enc)
+                let dta = try Data(contentsOf: rURL)
+                try dta.write(to: url, options: .atomic)
             }
         } else {
             print("Replacing README.md with generated file")
@@ -491,9 +594,10 @@ extension DSwiftSettings.ReadMe: Codable {
             }
             readmeContents += "\n\n"
             
-            if !settings.license.isNone && !settings.license.displayName.isEmpty {
+            if !settings.license.isNone {
                 readmeContents += "## License\n\n"
-                readmeContents += "This project is licensed under \(settings.license.displayName) - see the [LICENSE.md](LICENSE.md) file for details.\n\n"
+                readmeContents += settings.license.readmeText + "\n\n"
+                //readmeContents += "This project is licensed under \(settings.license.displayName) - see the [LICENSE.md](LICENSE.md) file for details.\n\n"
             }
             readmeContents += "## Acknowledgments\n"
             
