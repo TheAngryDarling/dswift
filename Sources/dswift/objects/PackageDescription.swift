@@ -36,7 +36,9 @@ public struct PackageDescription: Codable {
         if !FileManager.default.fileExists(atPath: packagePath) { throw Error.missingPackageFolder(packagePath) }
         
         let packageFileURL = URL(fileURLWithPath: packagePath).appendingPathComponent("Package.swift")
-        if !FileManager.default.fileExists(atPath: packagePath) { throw Error.missingPackageFile(packageFileURL.path) }
+        if !FileManager.default.fileExists(atPath: packagePath) {
+            throw Error.missingPackageFile(packageFileURL.path)
+        }
         
         let task = Process()
         
@@ -50,7 +52,7 @@ public struct PackageDescription: Codable {
         #endif
         task.standardOutput = pipe
         // Send errors to null
-        task.standardError = FileHandle.nullDevice
+        //task.standardError = FileHandle.nullDevice
         //task.standardOutput = pipe
         
         try task.execute()
@@ -71,7 +73,10 @@ public struct PackageDescription: Codable {
         }
         
         let decoder = JSONDecoder()
-        do { self = try decoder.decode(PackageDescription.self, from: data) }
-        catch { throw Error.unableToTransformDescriptionIntoObjects(error, data, String(data: data, encoding: .utf8)) }
+        do {
+            self = try decoder.decode(PackageDescription.self, from: data)
+        } catch {
+            throw Error.unableToTransformDescriptionIntoObjects(error, data, String(data: data, encoding: .utf8))
+        }
     }
 }
