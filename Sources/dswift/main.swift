@@ -6,7 +6,7 @@ import XcodeProj
 // tells XcodeProjectBuilders.UserDetails to check env for REAL_USER_NAME and REAL_DISPLAY_NAME
 XcodeProjectBuilders.UserDetails.supportEnvUserName = true
 #endif
-let dSwiftVersion: String = "1.0.8"
+let dSwiftVersion: String = "1.0.9"
 let dSwiftModuleName: String = "Dynamic Swift"
 let dswiftAppName: String = ProcessInfo.processInfo.arguments.first!.components(separatedBy: "/").last!
 let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
@@ -14,7 +14,7 @@ let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
 //let dswiftStaticFileExtension: String = "dswift_static"
 //let dswiftSupportedFileExtensions: [String] = [dswiftFileExtension, dswiftStaticFileExtension]
 let dswiftSettingsFilePath: String = "~/.\(dswiftAppName).config"
-let isRunningFromXcode: Bool = (ProcessInfo.processInfo.environment["XCODE_VERSION_ACTUAL"] != nil)
+//let isRunningFromXcode: Bool = (ProcessInfo.processInfo.environment["XCODE_VERSION_ACTUAL"] != nil)
 
 
 
