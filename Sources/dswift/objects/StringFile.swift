@@ -55,7 +55,9 @@ public struct StringFile {
         let pth = NSString(string: path).expandingTildeInPath
         self.path = pth
         if FileManager.default.fileExists(atPath: pth) {
-            self.content = try String(contentsOfFile: pth, usedEncoding: &self.encoding)
+            self.content = try String(contentsOfFile: pth, foundEncoding: &self.encoding)
+            //self.content = try String(contentsOfFile: pth, encoding: .utf8)
+            //self.encoding = self.content.fastestEncoding
         }
     }
     
@@ -627,7 +629,7 @@ public extension StringFile {
     /// - Parameter element: An element to search for in the collection.
     /// - Returns: The first index where element is found. If element is not found in the collection, returns nil.
     func index(of element: Character) -> String.Index? {
-        return self.content.index(of: element)
+        return self.content.firstIndex(of: element)
     }
     
     /// Returns the first index in which an element of the collection satisfies the given predicate.
@@ -635,7 +637,7 @@ public extension StringFile {
     /// - Parameter predicate: A closure that takes an element as its argument and returns a Boolean value that indicates whether the passed element represents a match.
     /// - Returns: The index of the first element for which predicate returns true. If no elements in the collection satisfy the given predicate, returns nil.
     func index(where predicate: (Character) throws -> Bool) rethrows -> String.Index? {
-        return try self.content.index(where: predicate)
+        return try self.content.firstIndex(where: predicate)
     }
 }
 
