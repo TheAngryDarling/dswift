@@ -8,9 +8,88 @@
 import Foundation
 import XcodeProj
 import PBXProj
+import Dispatch
 
 extension Commands {
     
+    class OperationStats {
+        
+        private var _filesCreated: Int = 0
+        private var _filesCreatedLock = DispatchQueue(label: "DSwift Build: Files Created Counter Lock")
+        public var filesCreated: Int {
+            get { return self._filesCreatedLock.sync(execute: { return self._filesCreated }) }
+            set { self._filesCreatedLock.sync { self._filesCreated = newValue } }
+        }
+        
+        private var _filesUpdated: Int = 0
+        private var _filesUpdatedLock = DispatchQueue(label: "DSwift Build: Files Updated Counter Lock")
+        public var filesUpdated: Int {
+            get { return self._filesUpdatedLock.sync(execute: { return self._filesUpdated }) }
+            set { self._filesUpdatedLock.sync { self._filesUpdated = newValue } }
+        }
+        
+        private var _filesUnchanged: Int = 0
+        private var _filesUnchangedLock = DispatchQueue(label: "DSwift Build: Files Unchanged Counter Lock")
+        public var filesUnchanged: Int {
+            get { return self._filesUnchangedLock.sync(execute: { return self._filesUpdated }) }
+            set { self._filesUnchangedLock.sync { self._filesUnchanged = newValue } }
+        }
+        
+        private var _filesFailed: Int = 0
+        private var _filesFailedLock = DispatchQueue(label: "DSwift Build: Files Failed Counter Lock")
+        public var filesFailed: Int {
+            get { return self._filesFailedLock.sync(execute: { return self._filesFailed }) }
+            set { self._filesFailedLock.sync { self._filesFailed = newValue } }
+        }
+        
+        private var _filesMissingFromXcode: Int = 0
+        private var _filesMissingFromXcodeLock = DispatchQueue(label: "DSwift Build: Files Missing from Xcode Counter Lock")
+        public var filesMissingFromXcode: Int {
+            get { return self._filesMissingFromXcodeLock.sync(execute: { return self._filesMissingFromXcode }) }
+            set { self._filesMissingFromXcodeLock.sync { self._filesMissingFromXcode = newValue } }
+        }
+        
+        public private(set) var xcodeProjModifications: [() throws -> Bool] = []
+        private let _queue: OperationQueue
+        public var name: String? {
+            get { return self._queue.name }
+            set { self._queue.name = newValue  }
+        }
+        
+        public var operationCount: Int { return self._queue.operationCount }
+        public var qualityOfService: QualityOfService {
+            get { return self._queue.qualityOfService }
+            set { self._queue.qualityOfService = newValue }
+        }
+        
+        public var maxConcurrentOperationCount: Int {
+            get { return self._queue.maxConcurrentOperationCount }
+            set { self._queue.maxConcurrentOperationCount = newValue }
+        }
+        
+        public var isSuspended: Bool { return self._queue.isSuspended }
+        
+        public init() { self._queue = OperationQueue() }
+        
+        public func addOperation(_ block: @escaping () -> Void) {
+            self._queue.addOperation(block)
+        }
+        
+        public func addXcodeModificationOperation(_ block: @escaping () throws -> Bool) {
+            self.xcodeProjModifications.append(block)
+        }
+        
+        public func waitUntilAllOperationsAreFinished() {
+            self._queue.waitUntilAllOperationsAreFinished()
+        }
+        public func cancelAllOperations() {
+            self._queue.cancelAllOperations()
+        }
+        
+        
+        
+        
+    }
     /// DSwift command execution
     static func commandDSwiftBuild(_ args: [String]) throws -> Int32 {
         guard !args.contains("--show-bin-path") && // Do not do any custom processing if we are just showing the bin path
@@ -19,10 +98,6 @@ extension Commands {
             return 0
         }
         var returnCode: Int32 = 0
-        //var args = args
-        
-        // Checkt to see if we're running in verbose mode
-        verboseFlag = (args.firstIndex(of: "--verbose") != nil || args.firstIndex(of: "-v") != nil)
         
         // Check to see if we are building test targets
         let doTestTargets: Bool = (args.firstIndex(of: "--build-tests") != nil || args[0].lowercased() == "test")
@@ -48,22 +123,11 @@ extension Commands {
             verbosePrint("Loaded xcode project")
         }
         
+        let queue = OperationStats()
         
-        
-        /*let generator = try DynamicSourceCodeGenerator(swiftPath: settings.swiftPath,
-                                                       dSwiftModuleName: dSwiftModuleName,
-                                                       dSwiftURL: dSwiftURL,
-                                                       print: generatorPrint,
-                                                       verbosePrint: generatorVerbosePrint,
-                                                       debugPrint: generatorDebugPrint)*/
-        
+        queue.name = "DSwift Build Queue"
         var hasProcessedTarget: Bool = false
-        var projectUpdated: Bool = false
-        var dswiftFilesCreated: Int = 0
-        var dswiftFilesUpdated: Int = 0
-        var dswiftFilesUnchanged: Int = 0
-        var dswiftFilesFailed: Int = 0
-        var dswiftFilesMissingFromXcode: Int = 0
+        
         for t in packageDetails.targets {
             var canDoTarget: Bool = (t.type != "test" || doTestTargets)
             if let tg = target {
@@ -74,36 +138,37 @@ extension Commands {
                 hasProcessedTarget = true
                 verbosePrint("Looking at target: \(t.name)")
                 let targetPath = URL(fileURLWithPath: t.path, isDirectory: true)
-                let r = try processFolder(generator: generator,
-                                          inTarget: t.name,
-                                          folder: targetPath,
-                                          root: packageURL,
-                                          rebuild: (args.first?.lowercased() == "rebuild"),
-                                          project: xcodeProject)
-                
-                dswiftFilesCreated += r.created
-                dswiftFilesUpdated += r.updated
-                dswiftFilesUnchanged += r.nochange
-                dswiftFilesFailed += r.failed
-                dswiftFilesMissingFromXcode += r.missingFromXcode
-                
-                projectUpdated = projectUpdated || r.xcodeProjectUpdated
+                try processFolder(generator: generator,
+                                  inTarget: t.name,
+                                  folder: targetPath,
+                                  root: packageURL,
+                                  rebuild: (args.first?.lowercased() == "rebuild"),
+                                  project: xcodeProject,
+                                  queue: queue)
+            
             }
         }
-        if dswiftFilesFailed > 0 { returnCode = 1 }
+        queue.waitUntilAllOperationsAreFinished()
+        if queue.filesFailed > 0 { returnCode = 1 }
         
-        if let p = xcodeProject, projectUpdated {
-            try p.save()
+        if let p = xcodeProject {
+            var anyUpdates: Bool = false
+            for xcodeMod in queue.xcodeProjModifications {
+                do {
+                    let r = try xcodeMod()
+                    anyUpdates = anyUpdates || r
+                } catch {
+                    errPrint("ERROR: Unable to update Xcode Project.\n\(error)")
+                    break
+                }
+            }
+            if anyUpdates {
+                verbosePrint("Saving Xcode Project")
+                try p.save()
+                verbosePrint("Xcode Project saved")
+            }
         }
         
-        if isRunningFromXcode && !projectUpdated && dswiftFilesMissingFromXcode > 0 {
-            errPrint("Error: Files were generated that are not current in the Xcode project.  Please add them or run \(dswiftAppName) package generate-xcodeproj to update the project before re-building")
-            returnCode = 1
-        }
-        /*if projectUpdated && isRunningFromXcode && xcodeProject != nil {
-            errPrint("Error: New files were added to the Xcode Project.  A new build is required for Xcode to pickup the new files")
-            returnCode = 1
-        }*/
         if let tg = target,  !hasProcessedTarget {
             printUsage()
             var targetError: String = "\tTarget '\(tg)' not found."
@@ -115,33 +180,66 @@ extension Commands {
             }
             
             
-            print(targetError)
+            errPrint(targetError)
             returnCode = 1 // Go no further.. We were unable to build target
         }
             
-        
-        
         return returnCode
     }
     
     /// Function called when executed build command
     static func commandXcodeDSwiftBuild(_ args: [String]) throws -> Int32 {
-        /*let generator = try DynamicSourceCodeGenerator(swiftPath: settings.swiftPath,
-                                                       dSwiftModuleName: dSwiftModuleName,
-                                                       dSwiftURL: dSwiftURL,
-                                                       print: generatorPrint,
-                                                       verbosePrint: generatorVerbosePrint,
-                                                       debugPrint: generatorDebugPrint)*/
         
-        let packageURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let source = URL(fileURLWithPath: args[1])
         
         do {
-            _ = try processFile(generator: generator,
-                                file: source,
-                                root: packageURL,
-                                rebuild: false,
-                                project: nil)
+            verbosePrint("Loading package details")
+           let packageDetails = try PackageDescription(swiftPath: settings.swiftPath)
+           verbosePrint("Package details loaded")
+           
+           let packageURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+           //let packageName: String = packageURL.lastPathComponent
+           
+           let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
+           var xcodeProject: XcodeProject? = nil
+           if FileManager.default.fileExists(atPath: xCodeProjectURL.path) {
+               verbosePrint("Loading xcode project")
+               xcodeProject = try XcodeProject(fromURL: xCodeProjectURL)
+               verbosePrint("Loaded xcode project")
+           }
+            
+            let r = try processFile(generator: generator,
+                                    file: source,
+                                    root: packageURL,
+                                    rebuild: false,
+                                    project: xcodeProject)
+            
+           guard let proj = xcodeProject else {
+                errPrint("ERROR: Unable to open Xcode Project '\(xCodeProjectURL.path)'")
+                return 1
+            }
+            guard r.destination.path.hasPrefix(proj.projectFolder.path) else {
+                errPrint("ERROR: generated source '\(r.destination.path)' is not within the project")
+                return 1
+            }
+            var localPath = r.destination.path
+            localPath.removeFirst(proj.projectFolder.path.count)
+            var group: XcodeGroup = proj.resources
+            if let idx = localPath.lastIndex(of: "/") { // If we find that the file is in a sub folder we must find the sub group
+                let groupPath = String(localPath[..<idx])
+                guard let grp = proj.resources.group(atPath: groupPath) else {
+                    print("WARNING: Unable to find group '\(groupPath)' to check for file \(localPath.lastPathComponent)")
+                    return 0
+                }
+                group = grp
+            }
+            guard group.file(atPath: localPath.lastPathComponent) != nil else {
+                errPrint("ERROR: File '\(localPath)' is not within the Xcode Project.  Please add it manually and re-build")
+                return 0
+            }
+            
+            
+            
             return 0
         } catch {
             if error is DynamicSourceCodeGenerator.Errors {
@@ -161,11 +259,14 @@ extension Commands {
                                     root: URL,
                                     rebuild: Bool,
                                     project: XcodeProject?) throws -> (destination: URL, updated: Bool, created: Bool) {
-        verbosePrint("Processing file \(source.path)")
+        verbosePrint("Looking at file \(source.path)")
         let destination = try generator.generatedFilePath(for: source)
+        verbosePrint("Destination: \(destination.path)")
         let destExists = FileManager.default.fileExists(atPath: destination.path)
+        verbosePrint("Destination Exists: \(destExists)")
         var doBuild: Bool = !destExists
-        if !doBuild { doBuild = try generator.generateSourceCodeRequired(for: source) }
+        if !doBuild { doBuild = try generator.requiresSourceCodeGeneration(for: source) }
+         verbosePrint("Requires Building: \(doBuild)")
         
         //doBuild = true
         var updated: Bool = false
@@ -182,6 +283,7 @@ extension Commands {
         
         if doBuild || rebuild {
             do {
+                verbosePrint("Processing file \(source.path)")
                 try generator.generateSource(from: source, havingEncoding: sourceEncoding, to: destination)
                 if destExists { updated = true }
                 else { created = true }
@@ -201,14 +303,9 @@ extension Commands {
                                       folder: URL,
                                       root: URL,
                                       rebuild: Bool,
-                                      project: XcodeProject?) throws -> (updated: Int, created: Int, nochange: Int, failed: Int, missingFromXcode: Int, xcodeProjectUpdated: Bool) {
+                                      project: XcodeProject?,
+                                      queue: OperationStats) throws {
         
-        var updated: Int = 0
-        var created: Int = 0
-        var nochange: Int = 0
-        var failed: Int = 0
-        var missingFromXcode: Int = 0
-        var xcodeProjectUpdated: Bool = false
         verbosePrint("Looking at path: \(folder.path)")
         let children = try FileManager.default.contentsOfDirectory(at: folder,
                                                                    includingPropertiesForKeys: nil)
@@ -224,33 +321,66 @@ extension Commands {
                 
                 //if dswiftSupportedFileExtensions.contains(child.pathExtension.lowercased()) {
                 if generator.isSupportedFile(child) {
-                    do {
-                        let modifications = try processFile(generator: generator,
-                                                            file: child,
-                                                            root: root,
-                                                            rebuild: rebuild,
-                                                            project: project)
-                        if modifications.created {
-                            verbosePrint("Created file '\(modifications.destination.path)'")
-                            created += 1
-                        } else if modifications.updated {
-                            verbosePrint("Updated file '\(modifications.destination.path)'")
-                            updated += 1
-                        } else {
-                            verbosePrint("No updates needed for file '\(modifications.destination.path)'")
-                            nochange += 1
+                    queue.addOperation {
+                        do {
+                           
+                            let modifications = try processFile(generator: generator,
+                                                                file: child,
+                                                                root: root,
+                                                                rebuild: rebuild,
+                                                                project: project)
+                            if modifications.created {
+                                verbosePrint("Created file '\(modifications.destination.path)'")
+                                queue.filesCreated += 1
+                            } else if modifications.updated {
+                                verbosePrint("Updated file '\(modifications.destination.path)'")
+                                queue.filesUpdated += 1
+                            } else {
+                                verbosePrint("No updates needed for file '\(modifications.destination.path)'")
+                                queue.filesUnchanged += 1
+                            }
+                            
+                            if let proj = project {
+                                if modifications.destination.path.hasPrefix(proj.projectFolder.path) {
+                                    
+                                    var localPath = modifications.destination.path
+                                    localPath.removeFirst(proj.projectFolder.path.count)
+                                    var group: XcodeGroup = proj.resources
+                                    if let idx = localPath.lastIndex(of: "/") { // If we find that the file is in a sub folder we must find the sub group
+                                        let groupPath = String(localPath[..<idx])
+                                        
+                                        group = try proj.resources.createSubGroup(atPath: groupPath, createFolders: false, savePBXFile: false)
+                                    }
+                                    
+                                    queue.addXcodeModificationOperation {
+                                        verbosePrint("Updating Xcode Project for '\(child.path)'")
+                                        let rtn: Bool = try generator.updateXcodeProject(xcodeFile: XcodeFileSystemURLResource(file: child.path),
+                                                                                inGroup: group,
+                                                                                havingTarget: proj.targets[target]!)
+                                        if rtn {
+                                            verbosePrint("Updated Xcode Project for '\(child.path)'")
+                                        } else {
+                                            verbosePrint("Could NOT update Xcode Project for '\(child.path)'")
+                                        }
+                                        return rtn
+                                    }
+                                    
+                                   
+                                }
+                            }
+                            
+                            
+                        } catch {
+                            if error is DynamicSourceCodeGenerator.Errors {
+                                errPrint("Error: \(error)")
+                            } else {
+                                errPrint("Error: Failed to process file '\(child.path)'\n\(error)")
+                            }
+                            queue.filesFailed += 1
                         }
-                        
-                        
-                    } catch {
-                        if error is DynamicSourceCodeGenerator.Errors {
-                            errPrint("Error: \(error)")
-                        } else {
-                            errPrint("Error: Failed to process file '\(child.path)'")
-                            errPrint(error)
-                        }
-                        failed += 1
                     }
+                    
+                    
                 }
             }
             
@@ -259,20 +389,13 @@ extension Commands {
         }
         
         for subFolder in folders {
-            let r = try processFolder(generator: generator,
-                                      inTarget: target,
-                                      folder: subFolder,
-                                      root: root,
-                                      rebuild: rebuild,
-                                      project: project)
-            updated += r.updated
-            created += r.created
-            nochange += r.nochange
-            failed += r.failed
-            missingFromXcode += r.missingFromXcode
-            xcodeProjectUpdated = xcodeProjectUpdated || r.xcodeProjectUpdated
+            try processFolder(generator: generator,
+                              inTarget: target,
+                              folder: subFolder,
+                              root: root,
+                              rebuild: rebuild,
+                              project: project,
+                              queue: queue)
         }
-        
-        return (updated: updated, created: created, nochange: nochange, failed: failed, missingFromXcode: missingFromXcode, xcodeProjectUpdated: xcodeProjectUpdated)
     }
 }
