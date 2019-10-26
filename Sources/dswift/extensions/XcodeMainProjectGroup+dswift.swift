@@ -39,7 +39,7 @@ internal extension XcodeMainProjectGroup {
         public static var createOnly: SubGroupGetOptions { return .createIfNeed(createFolders: false, savePBXFile: false) }
     }
     
-    /// Creates a sub group somehwere under the project
+    /// Creates a sub group somewhere under the project
     ///
     /// - Parameters:
     ///   - path: The full path (from the project root) to the group (Must start with a slash(/) )
