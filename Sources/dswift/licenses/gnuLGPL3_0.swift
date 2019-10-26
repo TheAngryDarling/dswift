@@ -8,7 +8,7 @@
 import Foundation
 
 public extension Licenses {
-    static let gnuLGPL3_0: String = """
+    static func gnuLGPL3_0() -> String { return """
                    GNU LESSER GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
@@ -175,4 +175,24 @@ apply, that proxy's public statement of acceptance of any version is
 permanent authorization for you to choose that version for the
 Library.
 """
+    }
+        
+    static func gnuLGPL3_0_README() -> String { return """
+<one line to give the program's name and a brief idea of what it does.>
+Copyright (C) \(Calendar.current.component(.year, from: Date())) \(settings.authorName ?? "")
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+        }
 }

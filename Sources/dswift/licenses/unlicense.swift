@@ -8,7 +8,7 @@
 import Foundation
 
 public extension Licenses {
-    static let unlicense: String = """
+    static func unlicense() -> String { return """
 This is free and unencumbered software released into the public domain.
 
 Anyone is free to copy, modify, publish, use, compile, sell, or
@@ -34,4 +34,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <http://unlicense.org>
 """
+    }
+    
+    static func unlicense_README() -> String {
+        return defaultLicenseReadMe(license: .unlicense)
+    }
 }

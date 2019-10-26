@@ -8,7 +8,7 @@
 import Foundation
 
 public extension Licenses {
-    static let mozilla2_0: String = """
+    static func mozilla2_0() -> String { return """
 Mozilla Public License Version 2.0
 ==================================
 
@@ -383,4 +383,9 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   This Source Code Form is "Incompatible With Secondary Licenses", as
   defined by the Mozilla Public License, v. 2.0.
 """
+    }
+    
+    static func mozilla2_0_README() -> String {
+        return defaultLicenseReadMe(license: .mozilla2_0)
+    }
 }
