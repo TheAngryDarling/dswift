@@ -17,7 +17,7 @@ extension Commands {
     // Sort files and folders within the project
     // "none":  No sorting
     // "sorted": Sort by name, folders first. Except for root, the root has files before folders and folders are in a special order, and Package.swift will always be at the top
-    "xcodeResourceSorting": "sorted",
+    "xcodeResourceSorting": "none",
 
     // Auto create a license file for the project
     // "none": No license
@@ -42,7 +42,7 @@ extension Commands {
     //      "sysMod": "{path to read me file for all system-module projects}" OR "generated",
     // },
 
-    // Author Name.  Used when generated README.me as the author name
+    // Author Name.  Used when generated README.md as the author name
     // If author name is not set, the application wil try and use env variable REAL_DISPLAY_NAME if set otherwise use the current use display name from the system
     // "authorName": "YOUR NAME HERE",
 
@@ -61,6 +61,9 @@ extension Commands {
 
     /// (Optional, Default: true) Lock generated files from being modified manually
     /// "lockGenratedFiles": true,
+
+    /// (Optional, Default: false) Indicator if generated files should be kepted in Xcode Project when generating / updating project
+    /// "includeGeneratedFilesInXcodeProject": false
 }
 """
     /// Method for setting up default dswift configuration
