@@ -291,6 +291,8 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
             
         }
         
+        verbosePrint("Created Sources folder")
+        
         let moduleSourceFolder = sourceFolder.appendingPathComponent(moduleName, isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: moduleSourceFolder,
@@ -298,6 +300,8 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         } catch {
             throw Errors.couldNotCreateFolder(.module, atPath: sourceFolder.path, error)
         }
+        
+        verbosePrint("Created \(moduleName) folder")
         
         let packageSourceCode = DynamicSourceCodeGenerator.PACKAGE_FILE_CONTENTS.replacingOccurrences(of: "{MODULENAME}", with: moduleName)
         let packageFileName = projectDestination.appendingPathComponent("Package.swift", isDirectory: false)
@@ -310,6 +314,8 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
             throw Errors.unableToWriteFile(atPath: packageFileName.path, error)
         }
         
+        verbosePrint("Wrote Package.swift file")
+        
         
         let srcBuilderSrc: String!
         let srcBuilderEnc: String.Encoding!
@@ -319,11 +325,13 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
                                                        className: clsName,
                                                        dSwiftModuleName: dSwiftModuleName,
                                                        dSwiftURL: dSwiftURL)
+            verbosePrint("Loaded source generator")
             srcBuilderSrc = try builder.generateSourceGenerator()
             srcBuilderEnc = builder.sourceEncoding
         } catch {
             throw Errors.unableToGenerateSource(for: sourcePath, error)
         }
+        verbosePrint("Generated source code")
         
         //let classFileName = moduleSourceFolder.appendingPathComponent("\(clsName).swift", isDirectory: false)
         let classFileName = moduleSourceFolder.appendingPathComponent("main.swift", isDirectory: false)
@@ -332,6 +340,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         } catch {
             throw Errors.unableToWriteFile(atPath: classFileName.path, error)
         }
+        verbosePrint("Wrote main.swift")
         
         return (moduleName: moduleName, moduleLocation: projectDestination, sourceEncoding: srcBuilderEnc)
     }
@@ -455,12 +464,15 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     public func generateSource(from sourcePath: String,
                                havingEncoding encoding: String.Encoding? = nil) throws -> (source: String, encoding: String.Encoding) {
         
+        verbosePrint("Creating module for '\(sourcePath.lastPathComponent)'")
         let mod = try createModule(sourcePath: sourcePath, havingEncoding: encoding)
         defer { try? FileManager.default.removeItem(at: mod.moduleLocation) }
         
+        verbosePrint("Building module for '\(sourcePath.lastPathComponent)'")
         var modulePathStr: String = try buildModule(sourcePath: sourcePath, moduleLocation: mod.moduleLocation)
         modulePathStr += "/" + mod.moduleName
         
+        verbosePrint("Running module for '\(sourcePath.lastPathComponent)'")
         let src = try runModule(atPath: modulePathStr, havingOutputEncoding: mod.sourceEncoding)
         return (source: src, encoding: mod.sourceEncoding)
         
@@ -484,22 +496,24 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         if settings.lockGenFiles {
             do {
                 //marking generated file as read-only
-                try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 4444)], ofItemAtPath: destinationPath)
+                try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0444)], ofItemAtPath: destinationPath)
             } catch {
                 verbosePrint("Unable to mark'\(destinationPath)' as readonly")
             }
         }
     }
     
-    public func addToXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool {
-        var rtn: Bool = true
+    
+    public func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool {
+        let rtn: Bool = true
 
         if group.file(atPath: xcodeFile.lastPathComponent) == nil {
             // Only add the dswift file to the project if its not already there
-            
+            verbosePrint("Trying to add file \(xcodeFile.path) to Xcode in group '\(group.path!)'")
             let f = try group.addExisting(xcodeFile,
                                           copyLocally: true,
                                           savePBXFile: false) as! XcodeFile
+             verbosePrint("Added file \(xcodeFile.path) to Xcode")
             
             //f.languageSpecificationIdentifier = "xcode.lang.swift"
             f.languageSpecificationIdentifier = self.languageForXcode(file: xcodeFile.path)
@@ -507,23 +521,32 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
             target.sourcesBuildPhase().createBuildFile(for: f)
             //print("Adding dswift file '\(child.path)'")
         }
+       
+            
+        
         let swiftName = try self.generatedFilePath(for: xcodeFile.path).lastPathComponent
         if let f = group.file(atPath: swiftName) {
-            var canRemoveSource: Bool = true
-            do {
-                let source = try String(contentsOf: URL(fileURLWithPath: f.fullPath))
-                if !source.hasPrefix("//  This file was dynamically generated from") {
-                    rtn = false
-                    errPrint("Error: Source file '\(f.fullPath)' matches build file name for '\(xcodeFile.path)' and is NOT a generated file")
-                    canRemoveSource = false
+            
+            //let source = try String(contentsOf: URL(fileURLWithPath: f.fullPath), encoding: f.encoding ?? .utf8)
+            let source: String = try {
+                if let e = f.encoding {
+                    return try String(contentsOf: URL(fileURLWithPath: f.fullPath), encoding: e)
+                } else {
+                    var srcEnc: String.Encoding = .utf8
+                    return try String(contentsOf: URL(fileURLWithPath: f.fullPath), foundEncoding: &srcEnc)
                 }
-                
-            } catch { }
-            if canRemoveSource {
-                // Remove the generated swift file if its there
-                try f.remove(deletingFiles: false, savePBXFile: false)
+            }()
+            // Make sure we are working with a generated file
+            if source.hasPrefix("//  This file was dynamically generated from") {
+                if !settings.includeGeneratedFilesInXcodeProject {
+                    try f.remove(deletingFiles: false, savePBXFile: false)
+                } else {
+                    // Remove target membership for file
+                    target.remove(file: f, from: .sourceBuildPhase)
+                }
             }
         }
+        
         return rtn
     }
 }
