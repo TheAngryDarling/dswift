@@ -143,7 +143,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
     }
     
     func isSupportedFile(_ file: String) -> Bool {
-        return file.pathExtension.lowercased() == "dswift-static"
+        return self.supportedExtensions.contains(file.pathExtension.lowercased())
     }
     
     public func languageForXcode(file: String) -> String? {
@@ -154,7 +154,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         return XcodeFileType.Text.json
     }
     
-    public func generateSourceCodeRequired(for source: String) throws -> Bool {
+    public func requiresSourceCodeGeneration(for source: String) throws -> Bool {
         let source = URL(fileURLWithPath: source)
         let staticFile: StaticFile = try JSONDecoder().decode(StaticFile.self,
                                                            from: try Data(contentsOf: source))
@@ -184,18 +184,17 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             }
             return true
         }
-        
-        var encoding: String.Encoding = .utf8
-        let fileContents = try String(contentsOf: destination, usedEncoding: &encoding)
+        var enc: String.Encoding = .utf8
+        let fileContents = try String(contentsOf: destination, foundEncoding: &enc)
         if fileContents.contains("// Failed to generate source code.") { return true }
         return false
     }
     
-    public func addToXcodeProject(xcodeFile: XcodeFileSystemURLResource,
+    public func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource,
                                   inGroup group: XcodeGroup,
                                   havingTarget target: XcodeTarget) throws -> Bool {
         var rtn: Bool = true
-        
+        verbosePrint("Calling \(type(of: self)).updateXcodeProject")
         let staticFilePath: String? = {
             do {
                 let source = URL(fileURLWithPath: xcodeFile.path)
@@ -209,7 +208,6 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         
         if group.file(atPath: xcodeFile.lastPathComponent) == nil {
             // Only add the dswift file to the project if its not already there
-            
             let f = try group.addExisting(xcodeFile,
                                           copyLocally: true,
                                           savePBXFile: false) as! XcodeFile
@@ -254,20 +252,26 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         }
         let swiftName = try self.generatedFilePath(for: xcodeFile.path).lastPathComponent
         if let f = group.file(atPath: swiftName) {
-            var canRemoveSource: Bool = true
-            do {
-                let source = try String(contentsOf: URL(fileURLWithPath: f.fullPath))
-                if !source.hasPrefix("//  This file was dynamically generated from") {
-                    rtn = false
-                    errPrint("Error: Source file '\(f.fullPath)' matches build file name for '\(xcodeFile.path)' and is NOT a generated file")
-                    canRemoveSource = false
+            
+            //let source = try String(contentsOf: URL(fileURLWithPath: f.fullPath), encoding: f.encoding ?? .utf8)
+            let source: String = try {
+                if let e = f.encoding {
+                    return try String(contentsOf: URL(fileURLWithPath: f.fullPath), encoding: e)
+                } else {
+                    var srcEnc: String.Encoding = .utf8
+                    return try String(contentsOf: URL(fileURLWithPath: f.fullPath), foundEncoding: &srcEnc)
                 }
-                
-            } catch { }
-            if canRemoveSource {
-                // Remove the generated swift file if its there
-                try f.remove(deletingFiles: false, savePBXFile: false)
+            }()
+            // Make sure we are working with a generated file
+            if source.hasPrefix("//  This file was dynamically generated from") {
+               if !settings.includeGeneratedFilesInXcodeProject {
+                   try f.remove(deletingFiles: false, savePBXFile: false)
+               } else {
+                   // Remove target membership for file
+                   target.remove(file: f, from: .sourceBuildPhase)
+               }
             }
+            
         }
         return rtn
     }
@@ -305,7 +309,17 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         
         if srcFile.type.isText {
             
-            var stringValue = try String(contentsOf: workingFileURL, usedEncoding: &encoding)
+            //var stringValue = try String(contentsOf: workingFileURL, usedEncoding: &encoding)
+            var stringValue: String
+            if let enc = srcFile.type.textEncoding {
+                stringValue = try String(contentsOf: workingFileURL, encoding: enc)
+                encoding = enc
+            } else {
+                var enc: String.Encoding = .utf8
+                stringValue = try String(contentsOf: workingFileURL, foundEncoding: &enc)
+                encoding = enc
+            }
+            
             stringValue = stringValue.replacingOccurrences(of: "\\", with: "\\\\")
             sourceCode += structTabs + "\t\(srcFile.modifier) static let string: String = \"\"\"\n"
             sourceCode += "\(stringValue)"
