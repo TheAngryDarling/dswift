@@ -253,11 +253,13 @@ class DynamicSourceCodeBuilder {
     public init(file: String, fileEncoding: String.Encoding? = nil, className: String, dSwiftModuleName: String, dSwiftURL: String) throws {
         self.file = file
         if let enc = fileEncoding {
+            verbosePrint("Reading file '\(file.lastPathComponent)' with encoding \(enc)")
             self.source = try String(contentsOfFile: self.file, encoding: enc)
             self.sourceEncoding = enc
         } else {
+             verbosePrint("Reading file '\(file.lastPathComponent)' with unknown encoding")
             var enc: String.Encoding = String.Encoding.utf8
-            self.source = try String(contentsOfFile: self.file, usedEncoding: &enc)
+            self.source = try String(contentsOfFile: self.file, foundEncoding: &enc)
             self.sourceEncoding = enc
         }
        
@@ -303,12 +305,11 @@ class DynamicSourceCodeBuilder {
                 classContent += block.string + "\n"
             }
         }
-        
         var completeSource: String = "import Foundation\n\n"
         completeSource += "public class \(clsName): NSObject {\n\n"
         completeSource += "\tpublic override var description: String { return generate() }\n\n"
         completeSource += classContent
-        completeSource += "\tpublic func generate() -> String {\n"
+        completeSource += "\n\tpublic func generate() -> String {\n"
         completeSource += "\t\tvar sourceBuilder: String = \"\"\n\n"
         
         completeSource += "\t\tsourceBuilder += \"//  This file was dynamically generated from '\(self.file.lastPathComponent)' by \(dSwiftModuleName).  Please do not modify directly.\\n\"\n"
