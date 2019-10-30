@@ -630,8 +630,7 @@ copy of the Program in return for a fee.
     }
 
     static func gnuAGPL3_0_README() -> String { return """
-<one line to give the program's name and a brief idea of what it does.>
-Copyright (C) \(Calendar.current.component(.year, from: Date())) \(settings.authorName ?? "")
+*Copyright (C) \(Calendar.current.component(.year, from: Date())) \(settings.authorName ?? "")*
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -644,7 +643,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
+along with this program.  If not, see [HERE](LICENSE.md) or [https://www.gnu.org/licenses/](https://www.gnu.org/licenses/).
 """
     }
 }
