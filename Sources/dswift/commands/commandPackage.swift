@@ -1303,6 +1303,7 @@ extension Commands {
     
     /// swift package init catcher
     private static func commandPackageInit(_ args: [String], _ retCode: Int32) throws -> Int32 {
+        var retCode = retCode
         guard retCode == 0 else { return retCode }
         guard (args.firstIndex(of: "--help") == nil) else { return retCode }
         
@@ -1324,6 +1325,19 @@ extension Commands {
                     try file.save()
                 }
             } catch { }
+        }
+        
+        if retCode == 0 {
+            var genXcodeProj: Bool = false
+            let strType: String = args.last!.lowercased()
+            if strType == "executable" { genXcodeProj = settings.generateXcodeProjectOnInit.executable }
+            else if strType == "library" { genXcodeProj = settings.generateXcodeProjectOnInit.library }
+            else if strType == "sysmod" { genXcodeProj = settings.generateXcodeProjectOnInit.sysMod }
+            
+            if genXcodeProj {
+                verbosePrint("Generating Xcode Project")
+                retCode = try processCommand(["package", "generate-xcodeproj"])
+            }
         }
         
         return retCode
