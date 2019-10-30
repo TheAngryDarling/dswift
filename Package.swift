@@ -8,10 +8,15 @@ let package = Package(
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
-        .package(url: "https://github.com/TheAngryDarling/SwiftXcodeProj.git", from: "1.0.2"),
-        //.package(url: "../../Packages/XcodeProj", .branch("master")),
-        .package(url: "https://github.com/TheAngryDarling/SwiftPatches.git", from: "1.0.0"),
+        
+        .package(url: "https://github.com/TheAngryDarling/SwiftXcodeProj.git", from: "1.0.6"),
+        //.package(url: "https://github.com/TheAngryDarling/SwiftXcodeProj.git", .branch("master")),
+        //.package(url: "../../Packages/SwiftXcodeProj", .branch("master")),
+        //.package(path: "../../Packages/SwiftXcodeProj"),
+        
+        .package(url: "https://github.com/TheAngryDarling/SwiftPatches.git", from: "1.0.3"),
         //.package(url: "../../Packages/SwiftPatches", .branch("master")),
+        
         .package(url: "https://github.com/TheAngryDarling/SwiftVersionKit.git", from: "1.0.3"),
     ],
     targets: [
