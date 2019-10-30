@@ -237,9 +237,6 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
                 try staticFileParentGroup.addExisting(XcodeFileSystemURLResource(file: sFile),
                                                       copyLocally: true,
                                                       savePBXFile: false)
-                } else {
-                    errPrint("A file with the same name '\(sFile.lastPathComponent)' already exists in '\(staticFileParentGroup.relativePath)'")
-                    rtn = false
                 }
             } else {
                 errPrint("ERROR: Static file '\(sFile)' is not within the project")
@@ -326,7 +323,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             sourceCode += "\n"
             sourceCode += "\"\"\"\n"
             sourceCode += structTabs + "\t\(srcFile.modifier) static let encoding: String.Encoding = String.Encoding(rawValue: \(encoding.rawValue))\n"
-            sourceCode += structTabs + "\t\(srcFile.modifier) static var data: Data { return \(srcFile.name).string.data(using: String.Encoding(rawValue: \(encoding.rawValue)))! }\n"
+            sourceCode += structTabs + "\t\(srcFile.modifier) static var data: Data { return \(srcFile.name).string.data(using: encoding)! }\n"
             
         } else {
             
