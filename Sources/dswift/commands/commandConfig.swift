@@ -46,6 +46,14 @@ extension Commands {
     // If author name is not set, the application wil try and use env variable REAL_DISPLAY_NAME if set otherwise use the current use display name from the system
     // "authorName": "YOUR NAME HERE",
 
+    // (Optional, Default: false) Generate Xcode Project on package creation if the flag is true
+    // "generateXcodeProjectOnInit": true,
+    // "generateXcodeProjectOnInit": {
+    //      "library": true,
+    //      "executable": true,
+    //      "sysMod": true,
+    // },
+
     // Regenerate Xcode Project (If already exists) when package is updated
     "regenerateXcodeProject": false,
 
