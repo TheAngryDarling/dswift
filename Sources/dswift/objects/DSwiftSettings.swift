@@ -9,6 +9,7 @@ import Foundation
 import XcodeProj
 import BasicCodableHelpers
 import SwiftPatches
+import VersionKit
 
 /// Settings structure for the config file
 struct DSwiftSettings {
@@ -17,6 +18,7 @@ struct DSwiftSettings {
         case xcodeResourceSorting
         case license
         case readme
+        case generateXcodeProjectOnInit
         case regenerateXcodeProject
         case repository
         case authorName
@@ -29,6 +31,17 @@ struct DSwiftSettings {
     enum FileResourceSorting: String, Codable {
         case none
         case sorted
+    }
+    
+    struct GenerateXcodeProjectOnInit {
+        let library: Bool
+        let executable: Bool
+        let sysMod: Bool
+        public init() {
+            self.library = false
+            self.executable = false
+            self.sysMod = false
+        }
     }
     
     /// Contact information for the developer
@@ -212,6 +225,8 @@ struct DSwiftSettings {
     let license: License
     /// Readme settings
     let readme: ReadMe
+    /// Indicator if 'swift packgae generate-xcodeproj' should be executed after 'swift package init'
+    let generateXcodeProjectOnInit: GenerateXcodeProjectOnInit
     /// Indicator if 'swift packgae generate-xcodeproj' should be executed after any 'swift package update'
     let regenerateXcodeProject: Bool
     /// Developer repository information
@@ -239,6 +254,7 @@ struct DSwiftSettings {
         self.xcodeResourceSorting = .none
         self.license = .none
         self.readme = ReadMe()
+        self.generateXcodeProjectOnInit = GenerateXcodeProjectOnInit()
         self.regenerateXcodeProject = false
         self.repository = nil
         self.authorName = nil
@@ -261,13 +277,14 @@ extension DSwiftSettings: Codable {
         self.xcodeResourceSorting = try container.decodeIfPresent(FileResourceSorting.self, forKey: .xcodeResourceSorting) ?? FileResourceSorting.none
         self.license = try container.decodeIfPresent(License.self, forKey: .license) ?? .none
         self.readme = try container.decodeIfPresent(ReadMe.self, forKey: .readme) ?? ReadMe()
+        self.generateXcodeProjectOnInit = try container.decodeIfPresent(GenerateXcodeProjectOnInit.self, forKey: .generateXcodeProjectOnInit) ?? GenerateXcodeProjectOnInit()
         self.regenerateXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .regenerateXcodeProject) ?? false
         self.repository = try container.decodeIfPresent(Repository.self, forKey: .repository)
         self.authorName = try container.decodeIfPresent(String.self, forKey: .authorName)
         //self.authorContacts = try container.decodeFromSingleOrArrayIfPresentWithEmptyDefault(Contact.self, forKey: .authorContacts)
         self.lockGenFiles = try container.decodeIfPresent(Bool.self, forKey: .lockGenFiels, withDefaultValue: true)
         self.verboseMode = try container.decodeIfPresent(Bool.self, forKey: .verboseMode, withDefaultValue: false)
-        self.includeGeneratedFilesInXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .includeGeneratedFilesInXcodeProject, withDefaultValue: false)
+        self.includeGeneratedFilesInXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .includeGeneratedFilesInXcodeProject) ?? false
         
     }
     
@@ -313,6 +330,7 @@ extension DSwiftSettings: Codable {
         try container.encode(self.xcodeResourceSorting, forKey: .xcodeResourceSorting)
         try container.encode(self.license, forKey: .license )
         if !self.readme.isEmpty { try container.encode(self.readme, forKey: .readme) }
+        try container.encode(self.generateXcodeProjectOnInit, forKey: .generateXcodeProjectOnInit)
         try container.encode(self.regenerateXcodeProject, forKey: .regenerateXcodeProject )
         try container.encodeIfPresent(self.repository, forKey: .repository)
         try container.encodeIfPresent(self.authorName, forKey: .authorName)
@@ -321,7 +339,42 @@ extension DSwiftSettings: Codable {
         try container.encode(self.includeGeneratedFilesInXcodeProject, forKey: .includeGeneratedFilesInXcodeProject, ifNot: false)
     }
 }
-
+extension DSwiftSettings.GenerateXcodeProjectOnInit: Codable {
+    enum CodingKeys: String, CodingKey {
+        case executable
+        case library
+        case sysMod
+    }
+    public init(from decoder: Decoder) throws {
+        if let container = try? decoder.singleValueContainer() {
+            let val = try container.decode(Bool.self)
+            self.executable = val
+            self.library = val
+            self.sysMod = val
+        } else {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.executable = try container.decodeIfPresent(Bool.self, forKey: .executable) ?? false
+            self.library = try container.decodeIfPresent(Bool.self, forKey: .library) ?? false
+            self.sysMod = try container.decodeIfPresent(Bool.self, forKey: .sysMod) ?? false
+        }
+    }
+    public func encode(to encoder: Encoder) throws {
+        guard !(self.executable == false &&
+                self.library == false &&
+                self.sysMod == false) else {
+            return
+        }
+        if (self.executable == self.library && self.library == self.sysMod) {
+            var container = encoder.singleValueContainer()
+            try container.encode(self.executable)
+        } else {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(self.executable, forKey: .executable, ifNot: false)
+            try container.encode(self.library, forKey: .library, ifNot: false)
+            try container.encode(self.sysMod, forKey: .sysMod, ifNot: false)
+        }
+    }
+}
 extension DSwiftSettings.License: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -558,16 +611,36 @@ extension DSwiftSettings.ReadMe: Codable {
                 let dta = try Data(contentsOf: rURL)
                 try dta.write(to: url, options: .atomic)
             }
+            
+            var readMe = try StringFile(url.path)
+            
+            if let author = settings.authorName, !author.isEmpty {
+                readMe.replaceOccurrences(of: "{author_name}", with: author)
+            }
+            
+            if let r = settings.repository {
+                if let rName = r.repositoryName {
+                    readMe.replaceOccurrences(of: "{repository_name}", with: rName)
+                }
+                if let sName = r.serviceName {
+                    readMe.replaceOccurrences(of: "{repository_service}", with: sName)
+                }
+                readMe.replaceOccurrences(of: "{repository_url}", with: r.serviceURL.absoluteString)
+            }
+            
+            try readMe.save()
+            
         } else {
             print("Replacing README.md with generated file")
             var readmeContents: String = "# \(name)\n\n"
+            var packageVersion: String = "4.0"
             let packageFileURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Package.swift")
             if FileManager.default.fileExists(atPath: packageFileURL.path) {
                 do {
                     let src = try String(contentsOf: packageFileURL)
                     let firstLine = String(src.split(separator: "\n").first!)
-                    let version = firstLine.replacingOccurrences(of: "// swift-tools-version:", with: "")
-                    readmeContents += "![swift >= \(version)](https://img.shields.io/badge/swift-%3E%3D\(version)-brightgreen.svg)\n"
+                    packageVersion = firstLine.replacingOccurrences(of: "// swift-tools-version:", with: "")
+                    readmeContents += "![swift >= \(packageVersion)](https://img.shields.io/badge/swift-%3E%3D\(packageVersion)-brightgreen.svg)\n"
                 } catch {}
             }
             readmeContents += "![macOS](https://img.shields.io/badge/os-macOS-green.svg?style=flat)\n"
@@ -578,15 +651,30 @@ extension DSwiftSettings.ReadMe: Codable {
                 let licenseBadgeStr = "![\(settings.license.badgeName)](https://img.shields.io/badge/License-\(webEscapedName)-\(settings.license.badgeColour).svg?style=flat)"
                 readmeContents += "[\(licenseBadgeStr)](LICENSE.md)\n"
             }
+            readmeContents += "\n"
+            readmeContents += "<Project description goes here>\n\n"
             
-            readmeContents += "\nProject description goes here\n\n"
+            readmeContents += "## Requirements\n\n"
+            if let v = Version.SingleVersion(packageVersion) {
+                let req = XcodeProjectBuilders.DefaultDetailsChoice.swiftVersion(v)
+                if let buildOptions = req.mostCompatible() {
+                    readmeContents += "* \(buildOptions.compatibleXcode)+ (If working within Xcode)\n"
+                    if let sV = buildOptions.swiftVersion {
+                        readmeContents += "* \(sV)+\n"
+                    }
+                    readmeContents += "\n"
+                }
+            }
             
             //let exts = generator.supportedExtensions.map({ return ".\($0)" }).joined(separator: " or ")
-            readmeContents += "> Note: This package used [\(dSwiftModuleName)](\(dSwiftURL)) to generate some of its source code.  While the generated source code should be included and available in this package so building directly with swift is possible, if missing, you may need to download and build with [\(dSwiftModuleName)](\(dSwiftURL))\n\n"
+            readmeContents += "> Note: This package used [\(dSwiftModuleName)](\(dSwiftURL)) to generate some, or all, of its source code.  While the generated source code should be included and available in this package so building directly with swift is possible, if missing, you may need to download and build with [\(dSwiftModuleName)](\(dSwiftURL))\n\n"
             
             readmeContents += "## Usage\n\n"
+            readmeContents += "<Usage goes here>\n\n"
+            readmeContents += "```swift\n\n"
+            readmeContents += "```\n\n"
             readmeContents += "## Dependencies\n\n"
-            readmeContents += "* **(Optional) [\(dSwiftModuleName)](\(dSwiftURL))** - A wrapper application for working with SwiftPM projects that generate swift code at build time from dynamic swift files.  *This is only necessary if the generated source was not provided*.\n\n"
+            readmeContents += "<Project dependencies goes here or remove this section>\n\n"
             readmeContents += "## Author\n\n"
             readmeContents += "* **\(settings.authorName ?? XcodeProjectBuilders.UserDetails().displayName!)** - *Initial work* "
             if let r = settings.repository {
@@ -599,7 +687,8 @@ extension DSwiftSettings.ReadMe: Codable {
                 readmeContents += settings.license.readmeText + "\n\n"
                 //readmeContents += "This project is licensed under \(settings.license.displayName) - see the [LICENSE.md](LICENSE.md) file for details.\n\n"
             }
-            readmeContents += "## Acknowledgments\n"
+            readmeContents += "## Acknowledgments\n\n"
+            readmeContents += "<Acknowledgments goes here or remove this section>"
             
             try readmeContents.write(to: url, atomically: true, encoding: .utf8)
         }
