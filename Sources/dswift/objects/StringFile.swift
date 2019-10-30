@@ -161,6 +161,18 @@ public struct StringFile {
     public mutating func replaceSubrange<C>(_ bounds: Range<String.Index>, with newElements: C) where C : Collection, C.Element == Character {
         return self.content.replaceSubrange(bounds, with: newElements)
     }
+    
+    /// Replaces all occurences of a given text with other text
+    public mutating func replaceOccurrences<Target, Replacement>(of target: Target,
+                                                                 with replacement: Replacement,
+                                                                 options: String.CompareOptions = [],
+                                                                 range searchRange: Range<String.Index>? = nil) where Target : StringProtocol, Replacement : StringProtocol {
+        self.content = self.content.replacingOccurrences(of: target,
+                                                         with: replacement,
+                                                         options: options,
+                                                         range: searchRange)
+    }
+    
     /// Removes and returns the character at the specified position.
     ///
     /// All the elements following `i` are moved to close the gap. This example
