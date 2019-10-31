@@ -193,7 +193,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
     public func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource,
                                   inGroup group: XcodeGroup,
                                   havingTarget target: XcodeTarget) throws -> Bool {
-        var rtn: Bool = true
+        var rtn: Bool = false
         verbosePrint("Calling \(type(of: self)).updateXcodeProject")
         let staticFilePath: String? = {
             do {
@@ -217,6 +217,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             f.explicitFileType = self.explicitFileTypeForXcode(file: xcodeFile.path)
             target.sourcesBuildPhase().createBuildFile(for: f)
             //print("Adding dswift file '\(child.path)'")
+            rtn = true
         }
         if let sFile = staticFilePath {
             verbosePrint("Found static file '\(sFile)' for adding to project")
@@ -233,19 +234,18 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
                 let staticFileParentGroup: XcodeGroup = try group.mainGroup.subGroup(atPath: staticFileParentPath,
                                                                                      options: .createOnly)!
                 if !staticFileParentGroup.contains(where: { $0.name == sFile.lastPathComponent }) {
-                verbosePrint("Adding '\(staticFileRelativePath)' to project")
-                try staticFileParentGroup.addExisting(XcodeFileSystemURLResource(file: sFile),
-                                                      copyLocally: true,
-                                                      savePBXFile: false)
+                    verbosePrint("Adding '\(staticFileRelativePath)' to project")
+                    try staticFileParentGroup.addExisting(XcodeFileSystemURLResource(file: sFile),
+                                                          copyLocally: true,
+                                                          savePBXFile: false)
+                    rtn = true
                 }
             } else {
                 errPrint("ERROR: Static file '\(sFile)' is not within the project")
-                rtn = false
             }
             
         } else {
             errPrint("ERROR: Could not load path for static file in '\(xcodeFile.path)'")
-            rtn = false
         }
         let swiftName = try self.generatedFilePath(for: xcodeFile.path).lastPathComponent
         if let f = group.file(atPath: swiftName) {
@@ -267,6 +267,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
                    // Remove target membership for file
                    target.remove(file: f, from: .sourceBuildPhase)
                }
+               rtn = true
             }
             
         }
