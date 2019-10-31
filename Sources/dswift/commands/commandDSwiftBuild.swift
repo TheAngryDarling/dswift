@@ -353,14 +353,14 @@ extension Commands {
                                     }
                                     
                                     queue.addXcodeModificationOperation {
-                                        verbosePrint("Updating Xcode Project for '\(child.path)'")
+                                        verbosePrint("Checking for updates to Xcode Project for '\(child.path)'")
                                         let rtn: Bool = try generator.updateXcodeProject(xcodeFile: XcodeFileSystemURLResource(file: child.path),
                                                                                 inGroup: group,
                                                                                 havingTarget: proj.targets[target]!)
                                         if rtn {
                                             verbosePrint("Updated Xcode Project for '\(child.path)'")
                                         } else {
-                                            verbosePrint("Could NOT update Xcode Project for '\(child.path)'")
+                                            verbosePrint("No updating Xcode Project needed for '\(child.path)'")
                                         }
                                         return rtn
                                     }
