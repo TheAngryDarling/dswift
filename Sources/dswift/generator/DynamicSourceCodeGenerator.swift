@@ -505,7 +505,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     
     
     public func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool {
-        let rtn: Bool = true
+        var rtn: Bool = false
 
         if group.file(atPath: xcodeFile.lastPathComponent) == nil {
             // Only add the dswift file to the project if its not already there
@@ -520,6 +520,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
             f.explicitFileType = self.explicitFileTypeForXcode(file: xcodeFile.path)
             target.sourcesBuildPhase().createBuildFile(for: f)
             //print("Adding dswift file '\(child.path)'")
+            rtn = true
         }
        
             
@@ -544,6 +545,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
                     // Remove target membership for file
                     target.remove(file: f, from: .sourceBuildPhase)
                 }
+                rtn = true
             }
         }
         
