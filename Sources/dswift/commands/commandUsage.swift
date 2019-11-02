@@ -28,10 +28,18 @@ extension Commands {
         print("\tGenerates all swift from dswift files and builds all targets")
         print("Usage: \(dswiftAppName) rebuild --target {target}")
         print("\tGenerates all swift from dswift files within a specific target and builds that target")
+        print("Usage: \(dswiftAppName) test")
+        print("\tGenerates all swift from dswift files and Build and run tests")
+        print("Usage: \(dswiftAppName) test --target {target}")
+        print("\tGenerates all swift from dswift files within a specific target and Build and run tests")
+        print("Usage: \(dswiftAppName) package init --type [empty|library|executable|system-module|manifest]")
+        print("\tInitialize a new package")
         print("Usage: \(dswiftAppName) package clean")
         print("\tRemoves all generated files, then calls swift package clean")
         print("Usage: \(dswiftAppName) package reset")
         print("\tRemoves all generated files, then calls swift package reset")
+        print("Usage: \(dswiftAppName) package generate-xcodeproj")
+        print("\tGenerates an Xcode project and add the proper build rules to support dswift files")
         print("")
         
         #if NO_DSWIFT_PARAMS
