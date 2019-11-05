@@ -48,6 +48,7 @@ Dynamic Static Swift files are JSON files that instruct the dswift application t
 * dswift build ... <-- Builds dswift files, then build swift
 * dswift rebuild ... <-- Rebuilds ALL dswift files, then builds swift
 * dswift test ... <-- Builds dswift files, then swift test
+* dswift run ... <-- Builds dswift files, then swift run
 * dswift package init ... <-- Set up a new project (through swift), and if set in configuration, adds license file and updates readme file
 * dswift package update <-- Updates dependencies (through swift), and if set in configuration, rebuilds Xcode Project file
 * dswift package reset <-- Clears dependencies (through swift), clears dswift cached build files
@@ -126,7 +127,8 @@ public struct Strings {
     private static let string: String = """
 ...
 """
-    public static var data: Data { return Strings.string.data(using: String.Encoding(rawValue: 4))! }
+    public static let encoding: String.Encoding = String.Encoding(rawValue: 4)
+    public static var data: Data { return Strings.string.data(using: encoding)! }
 }
 ```
 
@@ -151,7 +153,8 @@ public extension ClassName1.ClassName2 {
         private static let string: String = """
 ...
 """
-        public static var data: Data { return Strings.string.data(using: String.Encoding(rawValue: 4))! }
+        public static let encoding: String.Encoding = String.Encoding(rawValue: 4)
+        public static var data: Data { return Strings.string.data(using: encoding)! }
     }
 }
 ```
