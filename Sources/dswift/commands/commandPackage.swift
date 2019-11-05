@@ -1069,22 +1069,22 @@ extension Commands {
         let arguments = args
         //arguments.removeFirst() //First parameter is the package param
         //guard let cmd = arguments.last?.lowercased() else { return 0 }
-        
+        let packageCommand = (arguments.count >= 2 ? arguments[1] : "").lowercased()
         if arguments.contains("--help") {
             return try commandPackageHelp(args)
-        } else if arguments.contains("clean") {
+        } else if packageCommand == "clean" {
             return try commandPackageClean(arguments, Commands.commandSwift(args))
-        } else if arguments.contains("reset") {
+        } else if packageCommand == "reset" {
             return try commandPackageReset(arguments, Commands.commandSwift(args))
-        } else if arguments.contains("update") {
+        } else if packageCommand == "update" {
             return try commandPackageUpdate(arguments, Commands.commandSwift(args))
-        } else if arguments.contains("generate-xcodeproj") {
+        } else if packageCommand == "generate-xcodeproj" {
             return try commandPackageGenXcodeProj(arguments, Commands.commandSwift(args))
-        } else if arguments.contains("generate-completion-script") {
+        } else if packageCommand == "generate-completion-script" {
             return try commandPackageGenAutoScript(arguments)
-        } else if arguments.contains("install-completion-script") {
+        } else if packageCommand == "install-completion-script" {
             return try commandPackageInstallAutoScript(arguments)
-        } else if arguments.count > 2 && arguments[arguments.count - 3].lowercased() == "init" {
+        } else if packageCommand == "init" {
             return try commandPackageInit(arguments, Commands.commandSwift(args))
         } else {
             return Commands.commandSwift(args)
@@ -1306,9 +1306,13 @@ extension Commands {
         var retCode = retCode
         guard retCode == 0 else { return retCode }
         guard (args.firstIndex(of: "--help") == nil) else { return retCode }
-        
+        let packageType: String = {
+            guard let typeParamIndex = args.firstIndex(where: { return ($0.lowercased() == "--type" ) }) else { return "" }
+            guard typeParamIndex < args.count - 1 else { return "" }
+            return args[typeParamIndex + 1]
+        }()
         try settings.readme.write(to: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("README.md"),
-                                  for: args.last!.lowercased(),
+                                  for: packageType.lowercased(),
                                   withName: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).lastPathComponent)
         
         /// Setup license file
