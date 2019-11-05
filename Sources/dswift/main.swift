@@ -6,7 +6,7 @@ import XcodeProj
 // tells XcodeProjectBuilders.UserDetails to check env for REAL_USER_NAME and REAL_DISPLAY_NAME
 XcodeProjectBuilders.UserDetails.supportEnvUserName = true
 #endif
-let dSwiftVersion: String = "1.0.10"
+let dSwiftVersion: String = "1.0.11"
 let dSwiftModuleName: String = "Dynamic Swift"
 let dswiftAppName: String = ProcessInfo.processInfo.arguments.first!.components(separatedBy: "/").last!
 let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
@@ -55,6 +55,7 @@ let customExecutionCommands: [String: CustomCommandFunc] = ["--help": Commands.p
                                                             "package": Commands.commandPackage]
 let preExecutionCommands: [String: PreCommandFunc] = ["build": Commands.commandDSwiftBuild,
                                                       "test": Commands.commandDSwiftBuild,
+                                                      "run": Commands.commandDSwiftBuild,
                                                       "--version": Commands.commandVersion,]
 let postExecutionCommands: [String: PostCommandFunc] = [:]
 
