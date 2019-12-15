@@ -33,6 +33,8 @@ public protocol DynamicGenerator {
     
     /// The supported extensions for the given generator
     var supportedExtensions: [String] { get }
+    // Checks to see if there are supported files within the given folder
+    func containsSupportedFiles(inFolder folder: URL) throws -> Bool
     /// Method for cleaning a given folder of any generated source files
     func clean(folder: URL) throws
     /// A method to test if the current file can be added to a Xcode Project File
@@ -164,6 +166,35 @@ public extension DynamicGenerator {
     }
     func explicitFileTypeForXcode(file: URL) -> XcodeFileType? {
         return self.explicitFileTypeForXcode(file: file.path)
+    }
+    
+    func containsSupportedFiles(inFolder folder: URL) throws -> Bool {
+        guard folder.isFileURL else { throw DynamicGeneratorErrors.mustBeFileURL(folder) }
+        let children = try FileManager.default.contentsOfDirectory(at: folder,
+                                                                   includingPropertiesForKeys: nil)
+        var folders: [URL] = []
+        for child in children {
+            if let r = try? child.checkResourceIsReachable(), r {
+                
+                guard !child.isPathDirectory else {
+                    folders.append(child)
+                    continue
+                }
+                guard child.isPathFile else { continue }
+                
+                if self.isSupportedFile(child) {
+                    return true
+                }
+            }
+        }
+        
+        for subFolder in folders {
+            if (try self.containsSupportedFiles(inFolder: subFolder)) {
+                return true
+            }
+        }
+        
+        return false
     }
     
     func clean(folder: URL) throws {
