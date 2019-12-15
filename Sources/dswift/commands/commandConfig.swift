@@ -39,19 +39,28 @@ extension Commands {
     // "readme": {
     //      "executable": "{path to read me file for all executable projects}" OR "generated",
     //      "library": "{path to read me file for all library projects}" OR "generated",
-    //      "sysMod": "{path to read me file for all system-module projects}" OR "generated",
+    //      "system-module": "{path to read me file for all system-module projects}" OR "generated",
+    //      "other project type": "{path to read me file for other project type}" OR "generated",
+    //      "default": "{path to read me file for all other project types}" OR "generated",
     // },
 
     // Author Name.  Used when generated README.md as the author name
     // If author name is not set, the application wil try and use env variable REAL_DISPLAY_NAME if set otherwise use the current use display name from the system
     // "authorName": "YOUR NAME HERE",
 
+    // Provides an indicator of when to add the build rules to the Xcode Project.
+    //      always: Even if there are no custom build files
+    //      whenNeeded: Only when there are custom build files
+    // "whenToAddBuildRules": "always" OR "whenNeeded",
+
     // (Optional, Default: false) Generate Xcode Project on package creation if the flag is true
     // "generateXcodeProjectOnInit": true,
     // "generateXcodeProjectOnInit": {
     //      "library": true,
     //      "executable": true,
-    //      "sysMod": true,
+    //      "system-module": true,
+    //      "other project type": true,
+    //      "default": true,
     // },
 
     // Regenerate Xcode Project (If already exists) when package is updated
