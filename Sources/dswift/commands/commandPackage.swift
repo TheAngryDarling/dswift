@@ -548,18 +548,18 @@ extension Commands {
     function _dswift_package_init
     {
         if [[ $COMP_CWORD == $1 ]]; then
-            COMPREPLY=( $(compgen -W "--type" -- $cur) )
+            COMPREPLY=( $(compgen -W "--noDSwift --type" -- $cur) )
             return
         fi
         case $prev in
             (--type)
-                COMPREPLY=( $(compgen -W "empty library executable system-module" -- $cur) )
+                COMPREPLY=( $(compgen -W "empty library executable system-module manifest" -- $cur) )
                 return
             ;;
         esac
         case ${COMP_WORDS[$1]} in
         esac
-        COMPREPLY=( $(compgen -W "--type" -- $cur) )
+        COMPREPLY=( $(compgen -W "--noDSwift --type" -- $cur) )
     }
 
     function _dswift_package_generate-xcodeproj
@@ -1004,7 +1004,8 @@ extension Commands {
 
     _dswift_package_init() {
         arguments=(
-            "--type[empty|library|executable|system-module]: :{_values '' 'empty[generates an empty project]' 'library[generates project for a dynamic library]' 'executable[generates a project for a cli executable]' 'system-module[generates a project for a system module]'}"
+            "--noDSwift[Do not do any dynamic swift specific generating]"
+            "--type[empty|library|executable|system-module|manifest]: :{_values '' 'empty[generates an empty project]' 'library[generates project for a dynamic library]' 'executable[generates a project for a cli executable]' 'system-module[generates a project for a system module]' 'manifest[generates a project with only the maifiest file]'}"
         )
         _arguments $arguments && return
     }
@@ -1085,7 +1086,7 @@ extension Commands {
         } else if packageCommand == "install-completion-script" {
             return try commandPackageInstallAutoScript(arguments)
         } else if packageCommand == "init" {
-            return try commandPackageInit(arguments, Commands.commandSwift(args))
+            return try commandPackageInit(arguments)
         } else {
             return Commands.commandSwift(args)
         }
@@ -1201,52 +1202,87 @@ extension Commands {
             
             return 0
         } else if args.last == "zsh" || args.last == "generate-zsh-script" {
-            
-            
-            let zshFolderPath: String = NSString(string: "~/.zsh").expandingTildeInPath
-            let zshProfilePath: String = NSString(string: "~/.zsh/_\(dswiftAppName)").expandingTildeInPath
-            guard !FileManager.default.fileExists(atPath: zshProfilePath) else {
-                print("Autocomplete script was previously installed")
-                return 0
-            }
-            if !FileManager.default.fileExists(atPath: zshFolderPath) {
-                do {
-                    try FileManager.default.createDirectory(atPath: zshFolderPath, withIntermediateDirectories: false, attributes: nil)
-                } catch {
-                    errPrint("Unable to create ~/.zsh folder")
+            if let omzshPath = ProcessInfo.processInfo.environment["ZSH"] {
+                var autocompletePath = omzshPath
+                if !autocompletePath.hasSuffix("/") { autocompletePath += "/" }
+                autocompletePath += "completions/"
+                let autoScriptPath = autocompletePath + "_" + dswiftAppName
+                
+                if FileManager.default.fileExists(atPath: autoScriptPath) {
+                    print("Autocomplete script was previously installed in Oh-My-Zsh.  Removing old copy")
+                    do {
+                        try FileManager.default.removeItem(atPath: autoScriptPath)
+                    } catch {
+                        errPrint("Unable to delete \(autoScriptPath) script")
+                        return 1
+                    }
+                }
+                
+                do { try ZSH_AUTO_COMPLETE.write(toFile: autoScriptPath, atomically: true, encoding: .utf8) }
+                catch {
+                    errPrint("Unable to save \(autoScriptPath)")
                     return 1
                 }
-            }
+                
+                print("Autocomplete script installed into Oh-My-Zsh.  Please start a new session")
+                
+                return 0
+                
+            } else {
             
-            do { try ZSH_AUTO_COMPLETE.write(toFile: zshProfilePath, atomically: true, encoding: .utf8) }
-            catch {
-                errPrint("Unable to save ~/.zsh/_\(dswiftAppName)")
-                return 1
-            }
-            
-            
-            var zshProfile: StringFile
-            do { zshProfile = try StringFile("~/.zshrc") }
-            catch {
-                errPrint("Unable to load ~/.zshrc")
-                return 1
-            }
-            
-            guard !zshProfile.contains("fpath=(~/.zsh $fpath)") else {
+                let zshFolderPath: String = NSString(string: "~/.zsh").expandingTildeInPath
+                
+                if !FileManager.default.fileExists(atPath: zshFolderPath) {
+                    do {
+                        try FileManager.default.createDirectory(atPath: zshFolderPath, withIntermediateDirectories: false, attributes: nil)
+                    } catch {
+                        errPrint("Unable to create ~/.zsh folder")
+                        return 1
+                    }
+                }
+                
+                let zshProfilePath: String = NSString(string: "~/.zsh/_\(dswiftAppName)").expandingTildeInPath
+                if FileManager.default.fileExists(atPath: zshProfilePath) {
+                    print("Autocomplete script was previously installed.  Removing old copy")
+                    do {
+                        try FileManager.default.removeItem(atPath: zshProfilePath)
+                    } catch {
+                        errPrint("Unable to delete ~/.zsh/_\(dswiftAppName) script")
+                        return 1
+                    }
+                }
+                
+                do { try ZSH_AUTO_COMPLETE.write(toFile: zshProfilePath, atomically: true, encoding: .utf8) }
+                catch {
+                    errPrint("Unable to save ~/.zsh/_\(dswiftAppName)")
+                    return 1
+                }
+                
+                
+                var zshProfile: StringFile
+                do { zshProfile = try StringFile("~/.zshrc") }
+                catch {
+                    errPrint("Unable to load ~/.zshrc")
+                    return 1
+                }
+                
+                guard !zshProfile.contains("fpath=(~/.zsh $fpath)") else {
+                    print("Autocomplete script installed.  Please run compinit")
+                    return 0
+                }
+                
+                zshProfile += "fpath=(~/.zsh $fpath)\n"
+                
+                do { try zshProfile.save() }
+                catch {
+                    errPrint("Unable to save ~/.zshrc")
+                    return 1
+                }
+                
+               print("Autocomplete script installed.  Please run compinit")
+                
                 return 0
             }
-            
-            zshProfile += "fpath=(~/.zsh $fpath)\n"
-            
-            do { try zshProfile.save() }
-            catch {
-                errPrint("Unable to save ~/.zshrc")
-                return 1
-            }
-            
-           print("Autocomplete script installed.  Please run compinit")
-            
-            return 0
          } else if args.last == "--help" {
             let msg: String = """
             OVERVIEW: Install completion script (Bash or ZSH)
@@ -1257,7 +1293,11 @@ extension Commands {
             print(msg)
             return 0
         } else {
-            errPrint("error: unknown value '\(args.last!)' for argument flavor; use --help to print usage")
+            if args.last! != "install-completion-script" {
+                errPrint("error: unknown value '\(args.last!)' for argument flavor; use --help to print usage")
+            } else {
+                errPrint("error: missing flavor; use --help to print usage")
+            }
             return 1
         }
     }
@@ -1302,10 +1342,15 @@ extension Commands {
     }
     
     /// swift package init catcher
-    private static func commandPackageInit(_ args: [String], _ retCode: Int32) throws -> Int32 {
-        var retCode = retCode
+    private static func commandPackageInit(_ args: [String]) throws -> Int32 {
+        
+        var args = args
+        let noDSwift = args.contains(where: { $0.lowercased() == "--nodswift" })
+        if noDSwift { args.removeAll(where: { $0.lowercased() == "--nodswift" }) }
+        var retCode = Commands.commandSwift(args)
         guard retCode == 0 else { return retCode }
         guard (args.firstIndex(of: "--help") == nil) else { return retCode }
+        
         let packageType: String = {
             guard let typeParamIndex = args.firstIndex(where: { return ($0.lowercased() == "--type" ) }) else { return "" }
             guard typeParamIndex < args.count - 1 else { return "" }
@@ -1313,7 +1358,8 @@ extension Commands {
         }()
         try settings.readme.write(to: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("README.md"),
                                   for: packageType.lowercased(),
-                                  withName: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).lastPathComponent)
+                                  withName: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).lastPathComponent,
+                                  includeDSwiftMessage: !noDSwift)
         
         /// Setup license file
         try settings.license.write(to: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("LICENSE.md"))
@@ -1332,11 +1378,7 @@ extension Commands {
         }
         
         if retCode == 0 {
-            var genXcodeProj: Bool = false
-            let strType: String = args.last!.lowercased()
-            if strType == "executable" { genXcodeProj = settings.generateXcodeProjectOnInit.executable }
-            else if strType == "library" { genXcodeProj = settings.generateXcodeProjectOnInit.library }
-            else if strType == "sysmod" { genXcodeProj = settings.generateXcodeProjectOnInit.sysMod }
+            let genXcodeProj: Bool = settings.generateXcodeProjectOnInit.canGenerated(forName: args.last!.lowercased())
             
             if genXcodeProj {
                 verbosePrint("Generating Xcode Project")
@@ -1370,42 +1412,43 @@ extension Commands {
         let xcodeProject = try XcodeProject(fromURL: xCodeProjectURL)
         verbosePrint("Loaded xcode project")
         
-        
-        
-        for tD in packageDetails.targets {
-            //guard tD.type.lowercased() != "test" else { continue }
-            let relativePath = tD.path.replacingOccurrences(of: FileManager.default.currentDirectoryPath, with: "")
-            if let t = xcodeProject.targets.first(where: { $0.name == tD.name}),
-                let nT = t as? XcodeNativeTarget,
-                let targetGroup = xcodeProject.resources.group(atPath: relativePath)  {
-                //let targetGroup = xcodeProject.resources.group(atPath: "Sources/\(tD.name)")!
-                let rCode = try addDSwiftFilesToTarget(in: XcodeFileSystemURLResource(directory: tD.path),
-                                           inGroup: targetGroup,
-                                           havingTarget: nT,
-                                           usingProvider: xcodeProject.fsProvider)
-                if rCode != 0 {
-                    returnCode = rCode
+        // Only add build rule if we have supported files
+        if (try settings.whenToAddBuildRules.canAddBuildRules(packageURL)) {
+            for tD in packageDetails.targets {
+                //guard tD.type.lowercased() != "test" else { continue }
+                let relativePath = tD.path.replacingOccurrences(of: FileManager.default.currentDirectoryPath, with: "")
+                if let t = xcodeProject.targets.first(where: { $0.name == tD.name}),
+                    let nT = t as? XcodeNativeTarget,
+                    let targetGroup = xcodeProject.resources.group(atPath: relativePath)  {
+                    //let targetGroup = xcodeProject.resources.group(atPath: "Sources/\(tD.name)")!
+                    let rCode = try addDSwiftFilesToTarget(in: XcodeFileSystemURLResource(directory: tD.path),
+                                               inGroup: targetGroup,
+                                               havingTarget: nT,
+                                               usingProvider: xcodeProject.fsProvider)
+                    if rCode != 0 {
+                        returnCode = rCode
+                    }
+                    
+                   
+                    let supportedFilePatterns: String =  generator.supportedExtensions.map({ return "*.\($0)"}).joined(separator: " ")
+                    let rule = try nT.createBuildRule(name: "Dynamic Swift",
+                                                            compilerSpec: "com.apple.compilers.proxy.script",
+                                                            fileType: XcodeFileType.Pattern.proxy,
+                                                            editable: true,
+                                                            filePatterns: supportedFilePatterns,
+                                                            outputFiles: ["$(INPUT_FILE_DIR)/$(INPUT_FILE_BASE).swift"],
+                                                            outputFilesCompilerFlags: nil,
+                                                            script: "",
+                                                            atLocation: .end)
+                    rule.script = """
+                    if ! [ -x "$(command -v \(dswiftAppName))" ]; then
+                        echo "Error: \(dswiftAppName) is not installed.  Please visit \(dSwiftURL) to download and install." >&2
+                        exit 1
+                    fi
+                    \(dswiftAppName) xcodebuild ${INPUT_FILE_PATH}
+                    """
+                   
                 }
-                
-               
-                let supportedFilePatterns: String =  generator.supportedExtensions.map({ return "*.\($0)"}).joined(separator: " ")
-                let rule = try nT.createBuildRule(name: "Dynamic Swift",
-                                                        compilerSpec: "com.apple.compilers.proxy.script",
-                                                        fileType: XcodeFileType.Pattern.proxy,
-                                                        editable: true,
-                                                        filePatterns: supportedFilePatterns,
-                                                        outputFiles: ["$(INPUT_FILE_DIR)/$(INPUT_FILE_BASE).swift"],
-                                                        outputFilesCompilerFlags: nil,
-                                                        script: "",
-                                                        atLocation: .end)
-                rule.script = """
-                if ! [ -x "$(command -v \(dswiftAppName))" ]; then
-                    echo "Error: \(dswiftAppName) is not installed.  Please visit \(dSwiftURL) to download and install." >&2
-                    exit 1
-                fi
-                \(dswiftAppName) xcodebuild ${INPUT_FILE_PATH}
-                """
-               
             }
         }
  
@@ -1437,8 +1480,8 @@ extension Commands {
             }
         }
         
+        // Add additional files
         let additionalFiles: [String] = ["LICENSE.md", "README.md", "Tests/LinuxMain.swift"]
-        
         for file in additionalFiles {
             let filePath = xcodeProject.projectFolder.appendingFileComponent(file)
             if try xcodeProject.fsProvider.itemExists(at: filePath) {
@@ -1463,6 +1506,26 @@ extension Commands {
                 }
                 
                 
+            }
+        }
+        
+        let removeReferences: [String] = ["DerivedData"]
+        for reference in removeReferences {
+            let referencePath = xcodeProject.projectFolder.appendingFileComponent(reference)
+            if try xcodeProject.fsProvider.itemExists(at: referencePath) {
+                var group: XcodeGroup = xcodeProject.resources
+                if let idx = reference.lastIndex(of: "/") { // If we find that the file is in a sub folder we must find the sub group
+                   let groupPath = String(reference[..<idx])
+                   guard let grp = xcodeProject.resources.group(atPath: groupPath) else {
+                       errPrint("Unable to find group '\(groupPath)' to add file \(reference.lastPathComponent)")
+                       continue
+                   }
+                   group = grp
+                }
+
+                if let resource = group.resource(atPath: reference.lastPathComponent) {
+                    try resource.remove(deletingFiles: false, savePBXFile: false)
+                }
             }
         }
         
