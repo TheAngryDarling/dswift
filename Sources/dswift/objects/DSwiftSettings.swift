@@ -18,6 +18,7 @@ struct DSwiftSettings {
         case xcodeResourceSorting
         case license
         case readme
+        case whenToAddBuildRules
         case generateXcodeProjectOnInit
         case regenerateXcodeProject
         case repository
@@ -34,14 +35,24 @@ struct DSwiftSettings {
     }
     
     struct GenerateXcodeProjectOnInit {
-        let library: Bool
-        let executable: Bool
-        let sysMod: Bool
-        public init() {
-            self.library = false
-            self.executable = false
-            self.sysMod = false
+        let types: [String: Bool]
+        var isEmpty: Bool { return self.types.isEmpty }
+        public init() { self.types = [:] }
+        
+        func canGenerated(forName name: String) -> Bool {
+            if let val = self.types["all"] { return val }
+            
+            var name = name.lowercased()
+            if name == "sysmod" { name = "system-module" }
+            
+            if let val = self.types[name] { return val }
+            if let val = self.types["default"] { return val }
+            
+            return false
+            
         }
+        
+        
     }
     
     /// Contact information for the developer
@@ -180,11 +191,6 @@ struct DSwiftSettings {
     
     /// Difference location of readme files
     struct ReadMe {
-        enum CodingKeys: String, CodingKey {
-            case library
-            case executable
-            case sysMod
-        }
         /// Readme Type, Either URL or auto-generated
         public enum ReadMeType {
             case url(URL)
@@ -195,25 +201,35 @@ struct DSwiftSettings {
                 return val
             }
         }
-        /// ReadME type for library projects
-        let library: ReadMeType?
-        /// ReadME type for executable projects
-        let executable: ReadMeType?
-        /// ReadME type for Sys-Mod projects
-        let sysMod: ReadMeType?
-        /// Are all project types nil
-        var isEmpty: Bool {
-            return  (self.executable == nil &&
-                     self.library == nil &&
-                     self.sysMod == nil)
-        }
         
-        public init() {
-            self.library = nil
-            self.executable = nil
-            self.sysMod = nil
-        }
+        let types: [String: ReadMeType]
+        var isEmpty: Bool { return self.types.isEmpty }
+        public init() { self.types = [:] }
         
+        func getType(forName name: String) -> ReadMeType? {
+            if let val = self.types["all"] { return val }
+            
+            var name = name.lowercased()
+            if name == "sysmod" { name = "system-module" }
+            
+            if let val = self.types[name] { return val }
+            if let val = self.types["default"] { return val }
+            
+            return nil
+            
+        }
+    }
+    
+    enum AddingBuildRulesRule: String, Codable {
+        case always
+        case whenNeeded
+        
+        func canAddBuildRules(_ project: URL) throws -> Bool {
+            switch self {
+                case .always: return true
+                case .whenNeeded: return try generator.containsSupportedFiles(inFolder: project)
+            }
+        }
     }
     
     fileprivate static let defaultSwiftPath: String = "/usr/bin/swift"
@@ -225,6 +241,8 @@ struct DSwiftSettings {
     let license: License
     /// Readme settings
     let readme: ReadMe
+    /// Indicator of when to add build rules
+    let whenToAddBuildRules: AddingBuildRulesRule
     /// Indicator if 'swift packgae generate-xcodeproj' should be executed after 'swift package init'
     let generateXcodeProjectOnInit: GenerateXcodeProjectOnInit
     /// Indicator if 'swift packgae generate-xcodeproj' should be executed after any 'swift package update'
@@ -254,6 +272,7 @@ struct DSwiftSettings {
         self.xcodeResourceSorting = .none
         self.license = .none
         self.readme = ReadMe()
+        self.whenToAddBuildRules = .always
         self.generateXcodeProjectOnInit = GenerateXcodeProjectOnInit()
         self.regenerateXcodeProject = false
         self.repository = nil
@@ -277,6 +296,7 @@ extension DSwiftSettings: Codable {
         self.xcodeResourceSorting = try container.decodeIfPresent(FileResourceSorting.self, forKey: .xcodeResourceSorting) ?? FileResourceSorting.none
         self.license = try container.decodeIfPresent(License.self, forKey: .license) ?? .none
         self.readme = try container.decodeIfPresent(ReadMe.self, forKey: .readme) ?? ReadMe()
+        self.whenToAddBuildRules = try container.decodeIfPresent(AddingBuildRulesRule.self, forKey: .whenToAddBuildRules) ?? .always
         self.generateXcodeProjectOnInit = try container.decodeIfPresent(GenerateXcodeProjectOnInit.self, forKey: .generateXcodeProjectOnInit) ?? GenerateXcodeProjectOnInit()
         self.regenerateXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .regenerateXcodeProject) ?? false
         self.repository = try container.decodeIfPresent(Repository.self, forKey: .repository)
@@ -330,6 +350,7 @@ extension DSwiftSettings: Codable {
         try container.encode(self.xcodeResourceSorting, forKey: .xcodeResourceSorting)
         try container.encode(self.license, forKey: .license )
         if !self.readme.isEmpty { try container.encode(self.readme, forKey: .readme) }
+        try container.encode(self.whenToAddBuildRules, forKey: .whenToAddBuildRules, ifNot: .always)
         try container.encode(self.generateXcodeProjectOnInit, forKey: .generateXcodeProjectOnInit)
         try container.encode(self.regenerateXcodeProject, forKey: .regenerateXcodeProject )
         try container.encodeIfPresent(self.repository, forKey: .repository)
@@ -340,39 +361,34 @@ extension DSwiftSettings: Codable {
     }
 }
 extension DSwiftSettings.GenerateXcodeProjectOnInit: Codable {
-    enum CodingKeys: String, CodingKey {
-        case executable
-        case library
-        case sysMod
-    }
     public init(from decoder: Decoder) throws {
         if let container = try? decoder.singleValueContainer() {
             let val = try container.decode(Bool.self)
-            self.executable = val
-            self.library = val
-            self.sysMod = val
+            self.types = ["all": val]
         } else {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            self.executable = try container.decodeIfPresent(Bool.self, forKey: .executable) ?? false
-            self.library = try container.decodeIfPresent(Bool.self, forKey: .library) ?? false
-            self.sysMod = try container.decodeIfPresent(Bool.self, forKey: .sysMod) ?? false
+            var tps: [String: Bool] = [:]
+            let container = try decoder.container(keyedBy: CodableKey.self)
+            for key in container.allKeys {
+                let v = try container.decode(Bool.self, forKey: key)
+                var strKey = key.stringValue.lowercased()
+                if strKey == "sysmod" { strKey = "system-module" }
+                tps[strKey] = v
+            }
+            self.types = tps
         }
     }
     public func encode(to encoder: Encoder) throws {
-        guard !(self.executable == false &&
-                self.library == false &&
-                self.sysMod == false) else {
-            return
-        }
-        if (self.executable == self.library && self.library == self.sysMod) {
+        
+        if let v = self.types["all"], self.types.count == 1 {
             var container = encoder.singleValueContainer()
-            try container.encode(self.executable)
+            try container.encode(v)
         } else {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(self.executable, forKey: .executable, ifNot: false)
-            try container.encode(self.library, forKey: .library, ifNot: false)
-            try container.encode(self.sysMod, forKey: .sysMod, ifNot: false)
+            var container = encoder.container(keyedBy: CodableKey.self)
+            for (strKey, v) in self.types {
+                try container.encode(v, forKey: CodableKey(stringValue: strKey.lowercased()))
+            }
         }
+        guard !self.isEmpty else { return }
     }
 }
 extension DSwiftSettings.License: Codable {
@@ -552,47 +568,42 @@ extension DSwiftSettings.ReadMe.ReadMeType: Equatable {
 
 extension DSwiftSettings.ReadMe: Codable {
     
-    
     public init(from decoder: Decoder) throws {
         if let container = try? decoder.singleValueContainer() {
             let val = try container.decode(DSwiftSettings.ReadMe.ReadMeType.self)
-            self.executable = val
-            self.library = val
-            self.sysMod = val
+            self.types = ["all": val]
         } else {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            self.executable = try container.decodeIfPresent(DSwiftSettings.ReadMe.ReadMeType.self, forKey: .executable)
-            self.library = try container.decodeIfPresent(DSwiftSettings.ReadMe.ReadMeType.self, forKey: .library)
-            self.sysMod = try container.decodeIfPresent(DSwiftSettings.ReadMe.ReadMeType.self, forKey: .sysMod)
+            let container = try decoder.container(keyedBy: CodableKey.self)
+            var tps: [String: ReadMeType] = [:]
+            for key in container.allKeys {
+                var strKey = key.stringValue.lowercased()
+                if strKey == "sysmod" { strKey = "system-module" }
+                let val = try container.decode(DSwiftSettings.ReadMe.ReadMeType.self, forKey: key)
+                tps[strKey] = val
+            }
+            self.types = tps
         }
     }
     
     
     public func encode(to encoder: Encoder) throws {
-        if self.executable != nil &&
-           self.executable == self.library &&
-           self.executable == self.sysMod {
+        if let allVal = self.types["all"] {
             var container = encoder.singleValueContainer()
-            try container.encode(self.executable!)
+            try container.encode(allVal)
         } else {
-            var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encodeIfPresent(self.executable, forKey: .executable)
-            try container.encodeIfPresent(self.library, forKey: .library)
-            try container.encodeIfPresent(self.sysMod, forKey: .sysMod)
+            var container = encoder.container(keyedBy: CodableKey.self)
+            for (strKey, val) in self.types {
+                try container.encode(val, forKey: CodableKey(stringValue: strKey.lowercased()))
+            }
         }
     }
     
+    
     /// Write readme file to specific location
-    public func write(to url: URL, for modType: String, withName name: String) throws {
-        var readme: DSwiftSettings.ReadMe.ReadMeType? = nil
-        switch modType.lowercased() {
-            case "library": readme = self.library
-            case "executable": readme = self.executable
-            case "system-module": readme = self.sysMod
-            default: break
-        }
+    public func write(to url: URL, for modType: String, withName name: String, includeDSwiftMessage dswiftMessage: Bool = true) throws {
         
-        guard let readmeType = readme else { return }
+        //guard let readmeType = readme else { return }
+        guard let readmeType = self.getType(forName: modType) else { return }
         
         if var rURL = readmeType.url {
             print("Replacing README.md with \(rURL)")
@@ -666,8 +677,9 @@ extension DSwiftSettings.ReadMe: Codable {
                 }
             }
             
-            //let exts = generator.supportedExtensions.map({ return ".\($0)" }).joined(separator: " or ")
-            readmeContents += "> Note: This package used [\(dSwiftModuleName)](\(dSwiftURL)) to generate some, or all, of its source code.  While the generated source code should be included and available in this package so building directly with swift is possible, if missing, you may need to download and build with [\(dSwiftModuleName)](\(dSwiftURL))\n\n"
+            if dswiftMessage {
+                readmeContents += "> Note: This package used [\(dSwiftModuleName)](\(dSwiftURL)) to generate some, or all, of its source code.  While the generated source code should be included and available in this package so building directly with swift is possible, if missing, you may need to download and build with [\(dSwiftModuleName)](\(dSwiftURL))\n\n"
+            }
             
             readmeContents += "## Usage\n\n"
             readmeContents += "<Usage goes here>\n\n"
