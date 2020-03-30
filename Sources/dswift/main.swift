@@ -6,7 +6,7 @@ import XcodeProj
 // tells XcodeProjectBuilders.UserDetails to check env for REAL_USER_NAME and REAL_DISPLAY_NAME
 XcodeProjectBuilders.UserDetails.supportEnvUserName = true
 #endif
-let dSwiftVersion: String = "1.0.12"
+let dSwiftVersion: String = "1.0.13"
 let dSwiftModuleName: String = "Dynamic Swift"
 let dswiftAppName: String = ProcessInfo.processInfo.arguments.first!.components(separatedBy: "/").last!
 let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
@@ -148,9 +148,29 @@ guard customExecutionCommands.keys.contains(swiftCommand.lowercased()) ||
 
 
 // If we have the package path parameter, we should chanege the working path to reflect the new location
-if let idx = swiftParams.firstIndex(of: "--package-path"), idx < (swiftParams.count - 1) {
+/*if let idx = swiftParams.firstIndex(of: "--package-path"), idx < (swiftParams.count - 1) {
     FileManager.default.changeCurrentDirectoryPath(swiftParams[idx + 1])
+}*/
+
+/// Gets the current project path. Default is FileManager.default.currentDirectoryPath unless the --package-path flag has been passed along
+public let currentProjectPath: String = {
+    var rtn: String = FileManager.default.currentDirectoryPath
+    if let idx = swiftParams.firstIndex(of: "--package-path"), idx < (swiftParams.count - 1) {
+        FileManager.default.changeCurrentDirectoryPath(swiftParams[idx + 1])
+        let newDir = FileManager.default.currentDirectoryPath
+        FileManager.default.changeCurrentDirectoryPath(rtn)
+        rtn = newDir
+    }
+    return rtn
+}()
+/// Gets the current project URL.  Default is the path of FileManager.default.currentDirectoryPath unless the --package-path flag has been passed along
+public var currentProjectURL: URL {
+    return URL(fileURLWithPath: currentProjectPath)
 }
+// Gets the current working path. Default is FileManager.default.currentDirectoryPath unless the --package-path flag has been passed along
+/*func getWorkingPath() -> String {
+    return currentWorkingPath
+}*/
 
 func processCommand(_ swiftParams: [String]) throws -> Int32 {
     guard let paramCommand = swiftParams.first else { return 0 }
@@ -182,4 +202,5 @@ func processCommand(_ swiftParams: [String]) throws -> Int32 {
 }
 
 var returnCode: Int32 = try processCommand(swiftParams)
+
 exit(returnCode)
