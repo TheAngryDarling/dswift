@@ -1095,7 +1095,7 @@ extension Commands {
     /// Clean any swift files build from dswift
     private static func cleanDSwiftBuilds() throws {
         verbosePrint("Loading package details")
-        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath)
+        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath, packagePath: currentProjectPath)
         verbosePrint("Package details loaded")
         
         for t in packageDetails.targets {
@@ -1111,7 +1111,7 @@ extension Commands {
     
     private static func resetDSwiftBuilds() throws {
         // get the current project folder
-        let workingDir = FileManager.default.currentDirectoryPath
+        let workingDir = currentProjectPath
         let workingURL = URL(fileURLWithPath: workingDir, isDirectory: true)
         let urls: [URL] = [
                             workingURL.appendingPathComponent("Sources", isDirectory: true),
@@ -1356,15 +1356,15 @@ extension Commands {
             guard typeParamIndex < args.count - 1 else { return "" }
             return args[typeParamIndex + 1]
         }()
-        try settings.readme.write(to: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("README.md"),
+        try settings.readme.write(to: currentProjectURL.appendingPathComponent("README.md"),
                                   for: packageType.lowercased(),
-                                  withName: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).lastPathComponent,
+                                  withName: currentProjectURL.lastPathComponent,
                                   includeDSwiftMessage: !noDSwift)
         
         /// Setup license file
-        try settings.license.write(to: URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("LICENSE.md"))
+        try settings.license.write(to: currentProjectURL.appendingPathComponent("LICENSE.md"))
         
-        let gitIgnoreURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".gitignore")
+        let gitIgnoreURL: URL = currentProjectURL.appendingPathComponent(".gitignore")
         if FileManager.default.fileExists(atPath: gitIgnoreURL.path) {
             do {
                 var file = try StringFile(gitIgnoreURL.path)
@@ -1396,10 +1396,10 @@ extension Commands {
         
         var returnCode: Int32 = 0
         verbosePrint("Loading package details")
-        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath)
+        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath, packagePath: currentProjectPath)
         verbosePrint("Package details loaded")
         
-        let packageURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let packageURL: URL = currentProjectURL
         //let packageName: String = packageURL.lastPathComponent
         
         let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
@@ -1416,7 +1416,7 @@ extension Commands {
         if (try settings.whenToAddBuildRules.canAddBuildRules(packageURL)) {
             for tD in packageDetails.targets {
                 //guard tD.type.lowercased() != "test" else { continue }
-                let relativePath = tD.path.replacingOccurrences(of: FileManager.default.currentDirectoryPath, with: "")
+                let relativePath = tD.path.replacingOccurrences(of: currentProjectPath, with: "")
                 if let t = xcodeProject.targets.first(where: { $0.name == tD.name}),
                     let nT = t as? XcodeNativeTarget,
                     let targetGroup = xcodeProject.resources.group(atPath: relativePath)  {

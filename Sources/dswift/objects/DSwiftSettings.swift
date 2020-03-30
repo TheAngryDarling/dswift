@@ -645,7 +645,7 @@ extension DSwiftSettings.ReadMe: Codable {
             print("Replacing README.md with generated file")
             var readmeContents: String = "# \(name)\n\n"
             var packageVersion: String = "4.0"
-            let packageFileURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Package.swift")
+            let packageFileURL = currentProjectURL.appendingPathComponent("Package.swift")
             if FileManager.default.fileExists(atPath: packageFileURL.path) {
                 do {
                     let src = try String(contentsOf: packageFileURL)

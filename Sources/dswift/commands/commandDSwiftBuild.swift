@@ -108,10 +108,10 @@ extension Commands {
         }
         
         verbosePrint("Loading package details")
-        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath)
+        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath, packagePath: currentProjectPath)
         verbosePrint("Package details loaded")
         
-        let packageURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let packageURL: URL = URL(fileURLWithPath: packageDetails.path)
         //let packageName: String = packageURL.lastPathComponent
         
         let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
@@ -194,10 +194,10 @@ extension Commands {
         
         do {
             verbosePrint("Loading package details")
-           let packageDetails = try PackageDescription(swiftPath: settings.swiftPath)
+           let packageDetails = try PackageDescription(swiftPath: settings.swiftPath, packagePath: currentProjectPath)
            verbosePrint("Package details loaded")
            
-           let packageURL: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+           let packageURL: URL = URL(fileURLWithPath: packageDetails.path)
            //let packageName: String = packageURL.lastPathComponent
            
            let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
