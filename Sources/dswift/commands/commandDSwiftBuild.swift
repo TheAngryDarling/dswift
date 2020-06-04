@@ -43,6 +43,7 @@ extension Commands {
         }
         
         private var _filesMissingFromXcode: Int = 0
+        // swiftlint:disable:next line_length
         private var _filesMissingFromXcodeLock = DispatchQueue(label: "DSwift Build: Files Missing from Xcode Counter Lock")
         public var filesMissingFromXcode: Int {
             get { return self._filesMissingFromXcodeLock.sync(execute: { return self._filesMissingFromXcode }) }
@@ -85,15 +86,14 @@ extension Commands {
         public func cancelAllOperations() {
             self._queue.cancelAllOperations()
         }
-        
-        
-        
-        
+
     }
     /// DSwift command execution
     static func commandDSwiftBuild(_ args: [String]) throws -> Int32 {
-        guard !args.contains("--show-bin-path") && // Do not do any custom processing if we are just showing the bin path
-              !args.contains("--help") && // Do not do any custom processing if we are just showing the help
+        // Do not do any custom processing if we are just showing the bin path
+        guard !args.contains("--show-bin-path") &&
+              // Do not do any custom processing if we are just showing the help
+              !args.contains("--help") &&
               !args.contains("-h") else {
             return 0
         }
@@ -101,7 +101,7 @@ extension Commands {
         
         // Check to see if we are building test targets
         let doTestTargets: Bool = (args.firstIndex(of: "--build-tests") != nil || args[0].lowercased() == "test")
-        var target: String? = nil
+        var target: String? = nil // swiftlint:disable:this redundant_optional_initializer
         // Check to see if we are building a specific target
         if let idx = args.firstIndex(of: "--target"), idx < (args.count - 1) {
             target = args[idx + 1]
@@ -116,13 +116,13 @@ extension Commands {
         
         let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
         
-        var xcodeProject: XcodeProject? = nil
+        var xcodeProject: XcodeProject? = nil // swiftlint:disable:this redundant_optional_initializer
         if FileManager.default.fileExists(atPath: xCodeProjectURL.path) {
             verbosePrint("Loading xcode project")
             xcodeProject = try XcodeProject(fromURL: xCodeProjectURL)
             verbosePrint("Loaded xcode project")
         }
-        
+
         let queue = OperationStats()
         
         queue.name = "DSwift Build Queue"
@@ -134,7 +134,7 @@ extension Commands {
                 canDoTarget = (tg.lowercased() == t.name.lowercased())
             }
             
-            if (canDoTarget) {
+            if canDoTarget {
                 hasProcessedTarget = true
                 verbosePrint("Looking at target: \(t.name)")
                 let targetPath = URL(fileURLWithPath: t.path, isDirectory: true)
@@ -168,8 +168,8 @@ extension Commands {
                 verbosePrint("Xcode Project saved")
             }
         }
-        
-        if let tg = target,  !hasProcessedTarget {
+
+        if let tg = target, !hasProcessedTarget {
             printUsage()
             var targetError: String = "\tTarget '\(tg)' not found."
             
@@ -179,7 +179,7 @@ extension Commands {
                 targetError += " Available targets are: \(availableTargets)"
             }
             
-            
+
             errPrint(targetError)
             returnCode = 1 // Go no further.. We were unable to build target
         }
@@ -237,9 +237,7 @@ extension Commands {
                 errPrint("ERROR: File '\(localPath)' is not within the Xcode Project.  Please add it manually and re-build")
                 return 0
             }
-            
-            
-            
+
             return 0
         } catch {
             if error is DynamicSourceCodeGenerator.Errors {
@@ -342,7 +340,7 @@ extension Commands {
                             
                             if let proj = project {
                                 if modifications.destination.path.hasPrefix(proj.projectFolder.path) {
-                                    
+
                                     var localPath = modifications.destination.path
                                     localPath.removeFirst(proj.projectFolder.path.count)
                                     var group: XcodeGroup = proj.resources
@@ -364,12 +362,10 @@ extension Commands {
                                         }
                                         return rtn
                                     }
-                                    
-                                   
+
                                 }
                             }
-                            
-                            
+
                         } catch {
                             if error is DynamicSourceCodeGenerator.Errors {
                                 errPrint("Error: \(error)")
@@ -379,13 +375,9 @@ extension Commands {
                             queue.filesFailed += 1
                         }
                     }
-                    
-                    
+
                 }
             }
-            
-            
-            
         }
         
         for subFolder in folders {

@@ -9,6 +9,7 @@ import Foundation
 import XcodeProj
 
 extension Commands {
+    // swiftlint:disable:next line_length
     private static let defaultConfig: String = """
 {
     // (Optional, If not set /usr/bin/swift is used) The default swift path to use unless specificed in the command line
@@ -80,7 +81,10 @@ extension Commands {
     /// "lockGenratedFiles": true,
 
     /// (Optional, Default: false) Indicator if generated files should be kepted in Xcode Project when generating / updating project
-    /// "includeGeneratedFilesInXcodeProject": false
+    /// "includeGeneratedFilesInXcodeProject": false,
+
+    /// (Optional, Default: false) Indicator if, when generating Xcode Project file, the application should install SwiftLint Build Phase Run Script if SwiftLint is installed
+    /// "includeSwiftLintInXcodeProjectIfAvailable": false
 }
 """
     /// Method for setting up default dswift configuration
@@ -91,10 +95,11 @@ extension Commands {
                 print("File '\(dswiftSettingsFilePath)' already exists")
                 return 0
             }
-            
+
             var configStr = defaultConfig
             if let userDisplayName = XcodeProjectBuilders.UserDetails().displayName, userDisplayName != "root" {
-                configStr = configStr.replacingOccurrences(of: "// \"authorName\": \"YOUR NAME HERE\",", with: "\"authorName\": \"\(userDisplayName)\",")
+                configStr = configStr.replacingOccurrences(of: "// \"authorName\": \"YOUR NAME HERE\",",
+                                                           with: "\"authorName\": \"\(userDisplayName)\",")
             }
             try configStr.write(to: url, atomically: true, encoding: .utf8)
             
