@@ -27,6 +27,7 @@ struct DSwiftSettings {
         case lockGenFiels = "lockGeneratedFiles"
         case verboseMode
         case includeGeneratedFilesInXcodeProject
+        case includeSwiftLintInXcodeProjectIfAvailable
     }
     
     enum FileResourceSorting: String, Codable {
@@ -266,6 +267,8 @@ struct DSwiftSettings {
     }
     /// Indicator if generated source code files should be included in Xcode Projects
     let includeGeneratedFilesInXcodeProject: Bool
+    /// Indicator, if when generating Xcode Project file, that when enabled would install SwiftLint Build Phase Script when SwiftLint is installed
+    let includeSwiftLintInXcodeProjectIfAvailable: Bool
     
     public init() {
         self.swiftPath = DSwiftSettings.defaultSwiftPath
@@ -281,6 +284,7 @@ struct DSwiftSettings {
         self.lockGenFiles = true
         self.verboseMode = false
         self.includeGeneratedFilesInXcodeProject = false
+        self.includeSwiftLintInXcodeProjectIfAvailable = false
     }
 }
 
@@ -289,25 +293,49 @@ extension DSwiftSettings: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         #if NO_DSWIFT_PARAMS
         self.swiftPath = DSwiftSettings.defaultSwiftPath
-        
         #else
-        self.swiftPath = try container.decodeIfPresent(String.self, forKey: .swiftPath) ?? DSwiftSettings.defaultSwiftPath
+        self.swiftPath = try container.decodeIfPresent(String.self,
+                                                       forKey: .swiftPath,
+                                                       withDefaultValue: DSwiftSettings.defaultSwiftPath)
         #endif
-        self.xcodeResourceSorting = try container.decodeIfPresent(FileResourceSorting.self, forKey: .xcodeResourceSorting) ?? FileResourceSorting.none
-        self.license = try container.decodeIfPresent(License.self, forKey: .license) ?? .none
-        self.readme = try container.decodeIfPresent(ReadMe.self, forKey: .readme) ?? ReadMe()
-        self.whenToAddBuildRules = try container.decodeIfPresent(AddingBuildRulesRule.self, forKey: .whenToAddBuildRules) ?? .always
-        self.generateXcodeProjectOnInit = try container.decodeIfPresent(GenerateXcodeProjectOnInit.self, forKey: .generateXcodeProjectOnInit) ?? GenerateXcodeProjectOnInit()
-        self.regenerateXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .regenerateXcodeProject) ?? false
-        self.repository = try container.decodeIfPresent(Repository.self, forKey: .repository)
-        self.authorName = try container.decodeIfPresent(String.self, forKey: .authorName)
+        self.xcodeResourceSorting = try container.decodeIfPresent(FileResourceSorting.self,
+                                                                  forKey: .xcodeResourceSorting,
+                                                                  withDefaultValue: .none)
+        self.license = try container.decodeIfPresent(License.self,
+                                                     forKey: .license,
+                                                     withDefaultValue: .none)
+        self.readme = try container.decodeIfPresent(ReadMe.self,
+                                                    forKey: .readme,
+                                                    withDefaultValue: ReadMe())
+        self.whenToAddBuildRules = try container.decodeIfPresent(AddingBuildRulesRule.self,
+                                                                 forKey: .whenToAddBuildRules,
+                                                                 withDefaultValue: .always)
+        self.generateXcodeProjectOnInit = try container.decodeIfPresent(GenerateXcodeProjectOnInit.self,
+                                                                        forKey: .generateXcodeProjectOnInit,
+                                                                        withDefaultValue: GenerateXcodeProjectOnInit())
+        self.regenerateXcodeProject = try container.decodeIfPresent(Bool.self,
+                                                                    forKey: .regenerateXcodeProject,
+                                                                    withDefaultValue: false)
+        self.repository = try container.decodeIfPresent(Repository.self,
+                                                        forKey: .repository)
+        self.authorName = try container.decodeIfPresent(String.self,
+                                                        forKey: .authorName)
         //self.authorContacts = try container.decodeFromSingleOrArrayIfPresentWithEmptyDefault(Contact.self, forKey: .authorContacts)
-        self.lockGenFiles = try container.decodeIfPresent(Bool.self, forKey: .lockGenFiels, withDefaultValue: true)
-        self.verboseMode = try container.decodeIfPresent(Bool.self, forKey: .verboseMode, withDefaultValue: false)
-        self.includeGeneratedFilesInXcodeProject = try container.decodeIfPresent(Bool.self, forKey: .includeGeneratedFilesInXcodeProject) ?? false
+        self.lockGenFiles = try container.decodeIfPresent(Bool.self,
+                                                          forKey: .lockGenFiels,
+                                                          withDefaultValue: true)
+        self.verboseMode = try container.decodeIfPresent(Bool.self,
+                                                         forKey: .verboseMode,
+                                                         withDefaultValue: false)
+        self.includeGeneratedFilesInXcodeProject = try container.decodeIfPresent(Bool.self,
+                                                                                 forKey: .includeGeneratedFilesInXcodeProject,
+                                                                                 withDefaultValue: false)
+        self.includeSwiftLintInXcodeProjectIfAvailable = try container.decodeIfPresent(Bool.self,
+                                                                                       forKey: .includeSwiftLintInXcodeProjectIfAvailable,
+                                                                                       withDefaultValue: false)
         
     }
-    
+
     public init(from url: URL) throws {
         let jsonDecoder = JSONDecoder()
         //let dta = try Data(contentsOf: url.standardizedFileURL.resolvingSymlinksInPath())
@@ -358,6 +386,7 @@ extension DSwiftSettings: Codable {
         //try container.encodeToSingleOrArray(self.authorContacts, forKey: .authorContacts)
         try container.encode(self.verboseMode, forKey: .verboseMode, ifNot: false)
         try container.encode(self.includeGeneratedFilesInXcodeProject, forKey: .includeGeneratedFilesInXcodeProject, ifNot: false)
+        try container.encode(self.includeSwiftLintInXcodeProjectIfAvailable, forKey: .includeSwiftLintInXcodeProjectIfAvailable, ifNot: false)
     }
 }
 extension DSwiftSettings.GenerateXcodeProjectOnInit: Codable {
