@@ -222,7 +222,7 @@ extension Commands {
                 errPrint("ERROR: generated source '\(r.destination.path)' is not within the project")
                 return 1
             }
-            var localPath = r.destination.path
+            /*var localPath = r.destination.path
             localPath.removeFirst(proj.projectFolder.path.count)
             var group: XcodeGroup = proj.resources
             if let idx = localPath.lastIndex(of: "/") { // If we find that the file is in a sub folder we must find the sub group
@@ -236,7 +236,7 @@ extension Commands {
             guard group.file(atPath: localPath.lastPathComponent) != nil else {
                 errPrint("ERROR: File '\(localPath)' is not within the Xcode Project.  Please add it manually and re-build")
                 return 0
-            }
+            }*/
 
             return 0
         } catch {
