@@ -12,6 +12,7 @@ if [ "$(uname)" == "Darwin" ]; then
 fi
 
 DSWIFT_FILE="$DSWIFT_FOLDER/dswift"
+DSWIFT_UPDATE_FILE="$DSWIFT_FOLDER/dswift-update"
 DSWIFT_SHA_FILE="$DSWIFT_FOLDER/dswift.sha"
 DSWIFT_REPOSITORY="https://github.com/TheAngryDarling/dswift"
 DSWIFT_BRANCH_LATEST="latest"
@@ -66,6 +67,9 @@ if [ "$canUpdate" == "1" ]; then
     if [ ! -z "${NO_DSWIFT_PARAMS}" ]; then
         swiftBuildArgs="$swiftBuildArgs -Xswiftc -DNO_DSWIFT_PARAMS"
     fi
+	if [ ! -z "${AUTO_INSTALL_PACKAGES}" ]; then
+        swiftBuildArgs="$swiftBuildArgs -Xswiftc -DAUTO_INSTALL_PACKAGES"
+		fi
     if [ ! -z "${ENABLE_ENV_USER_DETAILS}" ]; then
         swiftBuildArgs="$swiftBuildArgs -Xswiftc -DENABLE_ENV_USER_DETAILS"
     fi
@@ -79,6 +83,8 @@ if [ "$canUpdate" == "1" ]; then
     && echo "Installing dswift ..." \
     && cp $(swift build $swiftBuildArgs --show-bin-path)/dswift $DSWIFT_FILE \
     && chmod -R o+r $DSWIFT_FILE \
+    && echo "Installing/Replacing swift-update" \
+    && cp /tmp/dswift/dswift-update $DSWIFT_UPDATE_FILE \
     && cd .. \
     && echo "Removing source code ..." \
     && rm -r -f /tmp/dswift \
