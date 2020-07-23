@@ -290,29 +290,20 @@ class DynamicSourceCodeBuilder {
         var generatorContent: String = ""
         var classContent: String = ""
         var lastBlockEnding: String.Index = self.source.startIndex
-        var lastBlock: CodeBlockIdentifiers.CodeBlock? = nil
-        while let block = try blockDefinitions.nextBlockSet(from: self.source,
-                                                            startingAt: lastBlockEnding,
-                                                            inFile: self.file) {
-            lastBlockEnding = block.range.upperBound
-            /*if let lb = lastBlock, !block.type.isInlineBlock {
-                if generatorContent.hasPrefix("\n")
-            }*/
-            if block.type.isTextBlock { // Plain text
-                var lines = block.lines
-                if lines.first == "" && (lastBlock?.type.isBasicBlock ?? false) {
-                    lines.removeFirst()
-                }
-                generatorContent += strBlockToPrintCode(lines, tabs: 2)
-            } else if block.type.isBasicBlock { // ?%...%?
-                generatorContent += block.string + "\n"
-            } else if block.type.isInlineBlock { // ?%=..%?
-                generatorContent += "\t\tsourceBuilder += \"\\(" + block.string + ")\"\n"
-            } else if block.type.isStaticBlock {
-                classContent += block.string + "\n"
-            }
-            
-            lastBlock = block
+        
+         while let block = try blockDefinitions.nextBlockSet(from: self.source,
+                                                             startingAt: lastBlockEnding,
+                                                             inFile: self.file) {
+             lastBlockEnding = block.range.upperBound
+             if block.type.isTextBlock { // Plain text
+                 generatorContent += strBlockToPrintCode(block.lines, tabs: 2)
+             } else if block.type.isBasicBlock { // ?%...%?
+                 generatorContent += block.string + "\n"
+             } else if block.type.isInlineBlock { // ?%=..%?
+                 generatorContent += "\t\tsourceBuilder += \"\\(" + block.string + ")\"\n"
+             } else if block.type.isStaticBlock {
+                 classContent += block.string + "\n"
+             }
         }
         var completeSource: String = "import Foundation\n\n"
         completeSource += "public class \(clsName): NSObject {\n\n"
