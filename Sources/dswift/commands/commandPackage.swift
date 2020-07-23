@@ -10,38 +10,6 @@ import XcodeProj
 import PBXProj
 
 
-fileprivate func which(_ command: String) -> String? {
-    #if os(Windows)
-    let dirSeperator: String = "\\"
-    let pathSeperator: Character = ";"
-    #else
-    let dirSeperator: String = "/"
-    let pathSeperator: Character = ":"
-    #endif
-    
-    let currentPath = FileManager.default.currentDirectoryPath
-    
-    let lookupPaths: [String] = (ProcessInfo.processInfo.environment["path"] ?? "").split(separator: pathSeperator).map(String.init)
-    
-    for path in lookupPaths {
-        var workingPath = path
-        
-        if workingPath == "." || workingPath == ".\(dirSeperator)" {
-            workingPath = currentPath
-        }
-        
-        if !workingPath.hasSuffix(dirSeperator) { workingPath += dirSeperator }
-        workingPath += command
-        if FileManager.default.fileExists(atPath: workingPath) {
-            if FileManager.default.isExecutableFile(atPath: workingPath) {
-                return workingPath
-            }
-        }
-    }
-    
-    return nil
-}
-
 extension Commands {
     
     static let BAHS_AUTO_COMPLETE: String = """
@@ -1483,8 +1451,8 @@ extension Commands {
             }
         }
  
-        if settings.includeSwiftLintInXcodeProjectIfAvailable &&
-            (which("swiftlint") != nil) {
+        if settings.includeSwiftLintInXcodeProject == .always ||
+            (settings.includeSwiftLintInXcodeProject == .whenAvailable && which("swiftlint") != nil) {
             for tD in packageDetails.targets {
                 //guard tD.type.lowercased() != "test" else { continue }
                 if let t = xcodeProject.targets.first(where: { $0.name == tD.name}),
