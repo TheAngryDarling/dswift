@@ -224,7 +224,7 @@ public struct PackageDescription {
         #endif
         let dumpPipe = Pipe()
         dumpTask.standardOutput = dumpPipe
-        task.standardError = dumpPipe
+        dumpTask.standardError = dumpPipe
         
         try dumpTask.execute()
         dumpTask.waitUntilExit()
