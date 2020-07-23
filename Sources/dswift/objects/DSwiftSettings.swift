@@ -28,6 +28,8 @@ struct DSwiftSettings {
         case verboseMode
         case includeGeneratedFilesInXcodeProject
         case includeSwiftLintInXcodeProjectIfAvailable
+        case includeSwiftLintInXcodeProject
+        case autoInstallMissingPackages
     }
     
     enum FileResourceSorting: String, Codable {
@@ -233,6 +235,12 @@ struct DSwiftSettings {
         }
     }
     
+    enum Useability: String, Codable {
+        case always
+        case whenAvailable
+        case never
+    }
+    
     fileprivate static let defaultSwiftPath: String = "/usr/bin/swift"
     /// The path to the swift to use (Default: /usr/bin/swift)
     var swiftPath: String
@@ -267,8 +275,12 @@ struct DSwiftSettings {
     }
     /// Indicator if generated source code files should be included in Xcode Projects
     let includeGeneratedFilesInXcodeProject: Bool
-    /// Indicator, if when generating Xcode Project file, that when enabled would install SwiftLint Build Phase Script when SwiftLint is installed
-    let includeSwiftLintInXcodeProjectIfAvailable: Bool
+    /// indicator, if when generating Xcode Project file would install SwifLint Build Phase Script
+    let includeSwiftLintInXcodeProject: Useability
+    
+    /// Indicator if we should try to auto install any missing system packages from the package manager
+    /// when requirements are found within the project, otherwise we will just give a warning
+    let autoInstallMissingPackages: Bool
     
     public init() {
         self.swiftPath = DSwiftSettings.defaultSwiftPath
@@ -284,7 +296,8 @@ struct DSwiftSettings {
         self.lockGenFiles = true
         self.verboseMode = false
         self.includeGeneratedFilesInXcodeProject = false
-        self.includeSwiftLintInXcodeProjectIfAvailable = false
+        self.includeSwiftLintInXcodeProject = .never
+        self.autoInstallMissingPackages = false
     }
 }
 
@@ -330,9 +343,22 @@ extension DSwiftSettings: Codable {
         self.includeGeneratedFilesInXcodeProject = try container.decodeIfPresent(Bool.self,
                                                                                  forKey: .includeGeneratedFilesInXcodeProject,
                                                                                  withDefaultValue: false)
-        self.includeSwiftLintInXcodeProjectIfAvailable = try container.decodeIfPresent(Bool.self,
-                                                                                       forKey: .includeSwiftLintInXcodeProjectIfAvailable,
-                                                                                       withDefaultValue: false)
+        var swiftLint: Useability = .never
+        if let useSwiftLint = try container.decodeIfPresent(Useability.self, forKey: .includeSwiftLintInXcodeProject) {
+            swiftLint = useSwiftLint
+        } else if let useSwiftLint = try container.decodeIfPresent(Bool.self, forKey: .includeSwiftLintInXcodeProjectIfAvailable), useSwiftLint {
+            swiftLint = .whenAvailable
+        }
+        
+        self.includeSwiftLintInXcodeProject = swiftLint
+        
+        #if AUTO_INSTALL_PACKAGES
+        self.autoInstallMissingPackages = true
+        #else
+        self.autoInstallMissingPackages = try container.decodeIfPresent(Bool.self,
+                                                                        forKey: .autoInstallMissingPackages,
+                                                                        withDefaultValue: false)
+        #endif
         
     }
 
@@ -386,7 +412,8 @@ extension DSwiftSettings: Codable {
         //try container.encodeToSingleOrArray(self.authorContacts, forKey: .authorContacts)
         try container.encode(self.verboseMode, forKey: .verboseMode, ifNot: false)
         try container.encode(self.includeGeneratedFilesInXcodeProject, forKey: .includeGeneratedFilesInXcodeProject, ifNot: false)
-        try container.encode(self.includeSwiftLintInXcodeProjectIfAvailable, forKey: .includeSwiftLintInXcodeProjectIfAvailable, ifNot: false)
+        try container.encode(self.includeSwiftLintInXcodeProject, forKey: .includeSwiftLintInXcodeProject, ifNot: .never)
+        try container.encode(self.autoInstallMissingPackages, forKey: .autoInstallMissingPackages, ifNot: false)
     }
 }
 extension DSwiftSettings.GenerateXcodeProjectOnInit: Codable {
