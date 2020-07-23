@@ -469,12 +469,33 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
                                to destinationPath: String) throws {
         self.verbosePrint("Generating source for '\(sourcePath)'")
         let s = try generateSource(from: sourcePath, havingEncoding: encoding)
-        if FileManager.default.fileExists(atPath: destinationPath) {
-            do {
-                try FileManager.default.removeItem(atPath: destinationPath)
-            } catch {
-                verbosePrint("Unable to remove old version of '\(destinationPath)'")
+        guard  FileManager.default.fileExists(atPath: destinationPath) else {
+            try s.source.write(toFile: destinationPath, atomically: false, encoding: s.encoding)
+            if settings.lockGenFiles {
+                do {
+                    //marking generated file as read-only
+                    try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0444)], ofItemAtPath: destinationPath)
+                } catch {
+                    verbosePrint("Unable to mark'\(destinationPath)' as readonly")
+                }
             }
+            return
+        }
+        
+        var enc: String.Encoding = encoding ?? .utf8
+        let oldSource = try String(contentsOfFile: destinationPath, foundEncoding: &enc)
+        // Try and compare new source with old source.  Only update if they are not the same
+        // We do this so that the file modification does not happen unless absolutely required
+        // so git does not think its a new file unless it really is
+        guard s.source != oldSource else {
+            verbosePrint("No changes to source: \(destinationPath)")
+            return
+        }
+       
+        do {
+            try FileManager.default.removeItem(atPath: destinationPath)
+        } catch {
+            verbosePrint("Unable to remove old version of '\(destinationPath)'")
         }
         try s.source.write(toFile: destinationPath, atomically: false, encoding: s.encoding)
         if settings.lockGenFiles {
