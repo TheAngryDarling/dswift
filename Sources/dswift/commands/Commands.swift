@@ -43,4 +43,37 @@ public struct Commands {
         let msg = buildPrintLine(message, filename, line, funcname)
         verbosePrint(msg)
     }
+    /// Finds the path to the given command or returns nil if the command is not found
+    internal static func which(_ command: String) -> String? {
+        #if os(Windows)
+        let dirSeperator: String = "\\"
+        let pathSeperator: Character = ";"
+        #else
+        let dirSeperator: String = "/"
+        let pathSeperator: Character = ":"
+        #endif
+        
+        let pathsStr = ProcessInfo.processInfo.environment["PATH"] ?? ""
+        
+        let paths = pathsStr.split(separator: pathSeperator).map(String.init)
+        for var path in paths {
+            // If we have a marker for the current directory lets change to full path
+            if path == "." || path == ".\(dirSeperator)" { path = FileManager.default.currentDirectoryPath }
+            // Make sure path exists
+            guard FileManager.default.fileExists(atPath: path) else { continue}
+            
+            // Build url to the command within the path
+            let cmdURL = URL(fileURLWithPath: path, isDirectory: true).appendingPathComponent(command, isDirectory: false)
+            
+            // Make sure the full command path exists
+            guard FileManager.default.fileExists(atPath: cmdURL.path) else { continue }
+            // Make sure that the command is executable
+            guard FileManager.default.isExecutableFile(atPath: cmdURL.path) else { continue }
+            
+            return cmdURL.path
+            
+        }
+        return nil
+    }
+    
 }
