@@ -6,7 +6,7 @@ import XcodeProj
 // tells XcodeProjectBuilders.UserDetails to check env for REAL_USER_NAME and REAL_DISPLAY_NAME
 XcodeProjectBuilders.UserDetails.supportEnvUserName = true
 #endif
-let dSwiftVersion: String = "1.0.13"
+let dSwiftVersion: String = "1.0.14"
 let dSwiftModuleName: String = "Dynamic Swift"
 let dswiftAppName: String = ProcessInfo.processInfo.arguments.first!.components(separatedBy: "/").last!
 let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
@@ -201,6 +201,11 @@ func processCommand(_ swiftParams: [String]) throws -> Int32 {
    
 }
 
-var returnCode: Int32 = try processCommand(swiftParams)
+do {
+    let returnCode: Int32 = try processCommand(swiftParams)
 
-exit(returnCode)
+    exit(returnCode)
+} catch {
+    print("Error: \(error)")
+    exit(1)
+}
