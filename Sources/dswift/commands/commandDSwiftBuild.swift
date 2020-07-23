@@ -88,6 +88,231 @@ extension Commands {
         }
 
     }
+    /// Method tries to find/install any missing packages from the providers list
+    /// Currently supports providers brew and apt
+    /// If settings
+    static func tryPreloadingProviderPackages(_ details: PackageDescription) throws {
+        #if os(OSX) || os(macOS)
+        guard let packages = details.uniqueProviders["brew"] ?? details.uniqueProviders["Brew"] else {
+            return
+        }
+        
+        // Make sure we actually have packages
+        guard packages.count > 0 else { return }
+        
+        // Check to see if package manager is installed
+        guard let commandPath = Commands.which("brew") else {
+            errPrint("ERROR: Unable to find package manager Homebrew.  Packages \(packages) not verified to be installed")
+            return
+        }
+        
+        var hasUpdatedList = false
+        
+        // Check and install any missing packages
+        for package in packages {
+            
+            if !hasUpdatedList {
+                hasUpdatedList = true
+                verbosePrint("Updating packages list")
+                let updateTask = Process()
+                updateTask.executable = URL(fileURLWithPath: commandPath)
+                updateTask.arguments = ["update"]
+
+                updateTask.standardInput = FileHandle.nullDevice
+                let updateInstall = Pipe()
+                updateTask.standardOutput = updateInstall
+                updateTask.standardError = updateInstall
+
+                try updateTask.execute()
+                updateTask.waitUntilExit()
+                
+                if updateTask.terminationStatus != 0 {
+                    errPrint("WARNING: Update package list failed")
+                    if let errStr = String(data: updateInstall.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) {
+                        print(errStr)
+                    }
+                }
+            }
+            
+            // Check to see if already installed
+            let checkTask = Process()
+            checkTask.executable = URL(fileURLWithPath: commandPath)
+            checkTask.arguments = ["info", package]
+            
+             // Send errors to null
+            checkTask.standardInput = FileHandle.nullDevice
+            let checkInstall = Pipe()
+            checkTask.standardOutput = checkInstall
+            checkTask.standardError = checkInstall
+            
+            try checkTask.execute()
+            checkTask.waitUntilExit()
+            
+            guard task.terminationStatus == 0 else {
+                errPrint("ERROR: Unable to verify package \(package)")
+                continue
+            }
+            
+            let checkData = checkInstall.fileHandleForReading.readDataToEndOfFile()
+            // Convert output to utf8 string
+            guard let checkStr = String(data: checkData, encoding: .utf8) else {
+                errPrint("ERROR: Unable to read brew output to verify package \(package)")
+                continue
+            }
+            
+            guard !checkStr.contains("No available formula with the name \"\(package)\"") else {
+                errPrint("Package \(package) not found.  Try updating Homebrew list")
+                continue
+            }
+            guard checkStr.contains("Not installed") else {
+                continue
+            }
+            // Install package
+            
+            guard settings.autoInstallMissingPackages else {
+                errPrint("WARNING: Missing package \(package).  Please use Homebrew to install")
+                continue
+            }
+            
+            verbosePrint("Installing package \(package)")
+            
+            let installTask = Process()
+            installTask.executable = URL(fileURLWithPath: commandPath)
+            installTask.arguments = ["install", "-y", package]
+            
+             // Send errors to null
+            installTask.standardInput = FileHandle.nullDevice
+            let installPipe = Pipe()
+            installTask.standardOutput = installPipe
+            installTask.standardError = installPipe
+            
+            try installTask.execute()
+            installTask.waitUntilExit()
+            
+            let installData = checkInstall.fileHandleForReading.readDataToEndOfFile()
+            
+            guard installTask.terminationStatus == 0 else {
+                errPrint("ERROR: Unable to install package \(package)")
+                if let installStr = String(data: installData, encoding: .utf8) {
+                    print(installStr)
+                }
+                continue
+            }
+            verbosePrint("Installed package \(package)")
+            
+        }
+        
+        #elseif os(Linux)
+        
+        guard let packages = details.uniqueProviders["apt"] ?? details.uniqueProviders["Apt"] else {
+            return
+        }
+        
+        // Make sure we actually have packages
+        guard packages.count > 0 else { return }
+        
+        // Check to see if package manager is installed
+        guard let commandPath = Commands.which("apt-get"),
+            let dpkgPath = Commands.which("dpkg") else {
+            errPrint("ERROR: Unable to find package manager apt-get.  Packages \(packages) not verified to be installed")
+            return
+        }
+        
+        var hasUpdatedList = false
+        // Check and install any missing packages
+        for package in packages {
+            
+            if !hasUpdatedList {
+                hasUpdatedList = true
+                verbosePrint("Updating packages list")
+                let updateTask = Process()
+                updateTask.executable = URL(fileURLWithPath: commandPath)
+                updateTask.arguments = ["update"]
+
+                let updateInstall = Pipe()
+                updateTask.standardOutput = updateInstall
+                updateTask.standardError = updateInstall
+
+                try updateTask.execute()
+                updateTask.waitUntilExit()
+                
+                if updateTask.terminationStatus != 0 {
+                    errPrint("WARNING: Update package list failed")
+                    if let errStr = String(data: updateInstall.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) {
+                        print(errStr)
+                    }
+                }
+            }
+            
+            // Check to see if already installed
+            let checkTask = Process()
+            checkTask.executable = URL(fileURLWithPath: dpkgPath)
+            checkTask.arguments = ["-l", package]
+            
+            let checkInstall = Pipe()
+            checkTask.standardOutput = checkInstall
+            checkTask.standardError = checkInstall
+            
+            try checkTask.execute()
+            checkTask.waitUntilExit()
+            
+            guard task.terminationStatus == 0 else {
+                errPrint("ERROR: Unable to verify package \(package)")
+                continue
+            }
+            
+            let checkData = checkInstall.fileHandleForReading.readDataToEndOfFile()
+            // Convert output to utf8 string
+            guard let checkStr = String(data: checkData, encoding: .utf8) else {
+                errPrint("ERROR: Unable to read apt output to verify package \(package)")
+                continue
+            }
+            
+            /*guard !checkStr.contains("no packages found matching") else {
+                print("Package \(package) not found.  Try updating apt-get list")
+                continue
+            }*/
+            
+            
+            guard !checkStr.contains("ii  \(package)") else {
+                continue
+            }
+            
+            // Install package
+            guard settings.autoInstallMissingPackages else {
+                errPrint("WARNING: Missing package \(package).  Please use apt-get to install")
+                continue
+            }
+            
+            
+            verbosePrint("Installing package \(package)")
+            
+            let installTask = Process()
+            installTask.executable = URL(fileURLWithPath: commandPath)
+            installTask.arguments = ["install", "-y", package]
+            
+            let installPipe = Pipe()
+            installTask.standardOutput = installPipe
+            installTask.standardError = installPipe
+            
+            try installTask.execute()
+            installTask.waitUntilExit()
+            
+            let installData = checkInstall.fileHandleForReading.readDataToEndOfFile()
+            
+            guard installTask.terminationStatus == 0 else {
+                errPrint("ERROR: Unable to install package \(package)")
+                if let installStr = String(data: installData, encoding: .utf8) {
+                    print(installStr)
+                }
+                continue
+            }
+            verbosePrint("Installed package \(package)")
+        }
+        
+        #endif
+    }
+    
     /// DSwift command execution
     static func commandDSwiftBuild(_ args: [String]) throws -> Int32 {
         // Do not do any custom processing if we are just showing the bin path
@@ -183,7 +408,12 @@ extension Commands {
             errPrint(targetError)
             returnCode = 1 // Go no further.. We were unable to build target
         }
-            
+           
+        if returnCode == 0 {
+            // Try installing any required missing system packages
+            try tryPreloadingProviderPackages(packageDetails)
+        }
+        
         return returnCode
     }
     
