@@ -238,22 +238,6 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         return DynamicSourceCodeGenerator.CommonClassName + "\(idx)"
     }
     
-   private func which(_ cmd: String) -> String? {
-        
-        guard let envStr = ProcessInfo.processInfo.environment["PATH"] else { return nil }
-        
-        let paths = envStr.split(separator: ":").map({String($0)})
-        for p in paths {
-            var cmdPath: String = p
-            if !cmdPath.hasSuffix("/") { cmdPath += "/" }
-            cmdPath += cmd
-            if FileManager.default.fileExists(atPath: cmdPath) {
-                return cmdPath
-            }
-        }
-        return nil
-    }
-    
     private func createModule(sourcePath: String,
                               havingEncoding encoding: String.Encoding? = nil) throws -> (moduleName: String, moduleLocation: URL, sourceEncoding: String.Encoding) {
         if !FileManager.default.fileExists(atPath: sourcePath) { throw Errors.missingSource(atPath: sourcePath) }
