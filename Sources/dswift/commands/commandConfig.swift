@@ -83,8 +83,13 @@ extension Commands {
     /// (Optional, Default: false) Indicator if generated files should be kepted in Xcode Project when generating / updating project
     /// "includeGeneratedFilesInXcodeProject": false,
 
-    /// (Optional, Default: false) Indicator if, when generating Xcode Project file, the application should install SwiftLint Build Phase Run Script if SwiftLint is installed
-    /// "includeSwiftLintInXcodeProjectIfAvailable": false
+    /// (Optional, Default: never) Indicator if, when generating Xcode Project file, the application should install SwiftLint Build Phase Run Script if SwiftLint is installed.  Options: always, whenAvailable, never
+    /// "includeSwiftLintInXcodeProject": "never",
+
+    /// (Optional, Default: false) Indicator if we should try to auto install any missing system packages from the package manager
+    /// when requirements are found within the project, otherwise we will just give a warning.
+    /// Note: If dswift was built with the flag AUTO_INSTALL_PACKAGES.  This property is always true no matter what the configuration value is set to
+    /// "autoInstallMissingPackages": false
 }
 """
     /// Method for setting up default dswift configuration
