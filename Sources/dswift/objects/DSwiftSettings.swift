@@ -30,6 +30,9 @@ struct DSwiftSettings {
         case includeSwiftLintInXcodeProjectIfAvailable
         case includeSwiftLintInXcodeProject
         case autoInstallMissingPackages
+        case defaultPackageInitToolsVersion
+        case defaultGitIgnore
+        case gitIgnoreAdditions
     }
     
     enum FileResourceSorting: String, Codable {
@@ -281,6 +284,12 @@ struct DSwiftSettings {
     /// Indicator if we should try to auto install any missing system packages from the package manager
     /// when requirements are found within the project, otherwise we will just give a warning
     let autoInstallMissingPackages: Bool
+    /// Set the package tools version to the give value when creating new package if the value is set
+    let defaultPackageInitToolsVersion: String?
+    /// Allows for the settings file to override the default gitignore file
+    let defaultGitIgnore: GitIgnoreFile?
+    /// Allows for the settings file to add additional rules to the gitignore file
+    let gitIgnoreAdditions: GitIgnoreFile?
     
     public init() {
         self.swiftPath = DSwiftSettings.defaultSwiftPath
@@ -298,6 +307,9 @@ struct DSwiftSettings {
         self.includeGeneratedFilesInXcodeProject = false
         self.includeSwiftLintInXcodeProject = .never
         self.autoInstallMissingPackages = false
+        self.defaultPackageInitToolsVersion = nil
+        self.defaultGitIgnore = nil
+        self.gitIgnoreAdditions = nil
     }
 }
 
@@ -360,6 +372,14 @@ extension DSwiftSettings: Codable {
                                                                         withDefaultValue: false)
         #endif
         
+        self.defaultPackageInitToolsVersion = try container.decodeIfPresent(String.self,
+                                                                            forKey: .defaultPackageInitToolsVersion)
+        
+        self.defaultGitIgnore = try container.decodeIfPresent(GitIgnoreFile.self,
+                                                              forKey: .defaultGitIgnore)
+        self.gitIgnoreAdditions = try container.decodeIfPresent(GitIgnoreFile.self,
+                                                                forKey: .gitIgnoreAdditions)
+        
     }
 
     public init(from url: URL) throws {
@@ -414,6 +434,9 @@ extension DSwiftSettings: Codable {
         try container.encode(self.includeGeneratedFilesInXcodeProject, forKey: .includeGeneratedFilesInXcodeProject, ifNot: false)
         try container.encode(self.includeSwiftLintInXcodeProject, forKey: .includeSwiftLintInXcodeProject, ifNot: .never)
         try container.encode(self.autoInstallMissingPackages, forKey: .autoInstallMissingPackages, ifNot: false)
+        try container.encodeIfPresent(self.defaultPackageInitToolsVersion, forKey: .defaultPackageInitToolsVersion)
+        try container.encodeIfPresent(self.defaultGitIgnore, forKey: .defaultGitIgnore)
+        try container.encodeIfPresent(self.gitIgnoreAdditions, forKey: .gitIgnoreAdditions)
     }
 }
 extension DSwiftSettings.GenerateXcodeProjectOnInit: Codable {
