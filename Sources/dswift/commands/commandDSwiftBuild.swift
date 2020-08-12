@@ -178,7 +178,7 @@ extension Commands {
             
             let installTask = Process()
             installTask.executable = URL(fileURLWithPath: commandPath)
-            installTask.arguments = ["install", "-y", package]
+            installTask.arguments = ["install", package]
             
              // Send errors to null
             installTask.standardInput = FileHandle.nullDevice
@@ -333,7 +333,31 @@ extension Commands {
         }
         
         verbosePrint("Loading package details")
-        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath, packagePath: currentProjectPath)
+        var pkgDetails: PackageDescription? = nil
+        var pkgDetailsTryCount = 0
+        var missingPackageName: String? = nil
+        var missingPackageURL: String? = nil
+        var missingPackageVersion: String? = nil
+        repeat {
+            do {
+                pkgDetails = try PackageDescription(swiftPath: settings.swiftPath,
+                                                    packagePath: currentProjectPath,
+                                                    loadDependencies: true)
+            } catch PackageDescription.Error.dependencyMissingLocalPath(name: let name, url: let url, let version) {
+                verbosePrint("WARING: Missing dependency locally.  Trying package update to resolve all missing dependencies.")
+                pkgDetailsTryCount += 1
+                missingPackageName = name
+                missingPackageURL = url
+                missingPackageVersion = version
+                // try updatig the package to resolve missing dependencies
+                _ = Commands.commandSwift(["package", "update"])
+            }
+        } while (pkgDetails == nil && pkgDetailsTryCount < 2)
+        guard let packageDetails = pkgDetails else {
+            throw PackageDescription.Error.dependencyMissingLocalPath(name: missingPackageName!,
+                                                                      url: missingPackageURL!,
+                                                                      version: missingPackageVersion!)
+        }
         verbosePrint("Package details loaded")
         
         let packageURL: URL = URL(fileURLWithPath: packageDetails.path)
@@ -424,7 +448,9 @@ extension Commands {
         
         do {
             verbosePrint("Loading package details")
-           let packageDetails = try PackageDescription(swiftPath: settings.swiftPath, packagePath: currentProjectPath)
+           let packageDetails = try PackageDescription(swiftPath: settings.swiftPath,
+                                                       packagePath: currentProjectPath,
+                                                       loadDependencies: false)
            verbosePrint("Package details loaded")
            
            let packageURL: URL = URL(fileURLWithPath: packageDetails.path)
@@ -452,21 +478,6 @@ extension Commands {
                 errPrint("ERROR: generated source '\(r.destination.path)' is not within the project")
                 return 1
             }
-            /*var localPath = r.destination.path
-            localPath.removeFirst(proj.projectFolder.path.count)
-            var group: XcodeGroup = proj.resources
-            if let idx = localPath.lastIndex(of: "/") { // If we find that the file is in a sub folder we must find the sub group
-                let groupPath = String(localPath[..<idx])
-                guard let grp = proj.resources.group(atPath: groupPath) else {
-                    print("WARNING: Unable to find group '\(groupPath)' to check for file \(localPath.lastPathComponent)")
-                    return 0
-                }
-                group = grp
-            }
-            guard group.file(atPath: localPath.lastPathComponent) != nil else {
-                errPrint("ERROR: File '\(localPath)' is not within the Xcode Project.  Please add it manually and re-build")
-                return 0
-            }*/
 
             return 0
         } catch {
@@ -609,8 +620,12 @@ extension Commands {
                 }
             }
         }
-        
+        let excludedRootChildFolders: [String] = ["build", ".build", ".git", "DerivedData"]
         for subFolder in folders {
+            // If we are in the root folder, make sure we are not a special folder that we know is not part of the sources
+            guard ((folder != root) || (!excludedRootChildFolders.contains(subFolder.lastPathComponent))) else {
+                continue
+            }
             try processFolder(generator: generator,
                               inTarget: target,
                               folder: subFolder,
