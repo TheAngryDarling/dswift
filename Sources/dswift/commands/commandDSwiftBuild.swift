@@ -367,9 +367,9 @@ extension Commands {
         
         var xcodeProject: XcodeProject? = nil // swiftlint:disable:this redundant_optional_initializer
         if FileManager.default.fileExists(atPath: xCodeProjectURL.path) {
-            verbosePrint("Loading xcode project")
+            verbosePrint("Loading Xcode project")
             xcodeProject = try XcodeProject(fromURL: xCodeProjectURL)
-            verbosePrint("Loaded xcode project")
+            verbosePrint("Loaded Xcode project")
         }
 
         let queue = OperationStats()
@@ -459,9 +459,9 @@ extension Commands {
            let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
            var xcodeProject: XcodeProject? = nil
            if FileManager.default.fileExists(atPath: xCodeProjectURL.path) {
-               verbosePrint("Loading xcode project")
+               verbosePrint("Loading Xcode project")
                xcodeProject = try XcodeProject(fromURL: xCodeProjectURL)
-               verbosePrint("Loaded xcode project")
+               verbosePrint("Loaded Xcode project")
            }
             
             let r = try processFile(generator: generator,

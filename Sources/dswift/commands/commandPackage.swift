@@ -1435,9 +1435,9 @@ extension Commands {
             errPrint("Project not found. \(xCodeProjectURL.path)")
             return 1
         }
-        verbosePrint("Loading xcode project")
+        verbosePrint("Loading Xcode project")
         let xcodeProject = try XcodeProject(fromURL: xCodeProjectURL)
-        verbosePrint("Loaded xcode project")
+        verbosePrint("Loaded Xcode project")
         
         // Only add build rule if we have supported files
         if (try settings.whenToAddBuildRules.canAddBuildRules(packageURL)) {
