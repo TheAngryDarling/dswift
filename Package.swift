@@ -10,6 +10,7 @@ let package = Package(
         // .package(url: /* package url */, from: "1.0.0"),
         
         .package(url: "https://github.com/TheAngryDarling/SwiftXcodeProj.git", from: "1.0.7"),
+        .package(url: "https://github.com/TheAngryDarling/SwiftBasicCodableHelpers.git", from: "1.0.4"),
         //.package(url: "https://github.com/TheAngryDarling/SwiftXcodeProj.git", .branch("master")),
         //.package(url: "../../Packages/SwiftXcodeProj", .branch("master")),
         //.package(path: "../../Packages/SwiftXcodeProj"),
@@ -26,6 +27,6 @@ let package = Package(
         // depends on.
         .target(
             name: "dswift",
-            dependencies: ["XcodeProj", "PBXProj", "SwiftPatches", "VersionKit", "RegEx"])
+            dependencies: ["XcodeProj", "PBXProj", "SwiftPatches", "VersionKit", "RegEx", "BasicCodableHelpers"])
     ]
 )
