@@ -77,19 +77,82 @@ extension Commands {
     //      "repositoryName": "YOUR REPOSITORY NAME",
     // },
 
-    /// (Optional, Default: true) Lock generated files from being modified manually
-    /// "lockGenratedFiles": true,
+    // (Optional, Default: true) Lock generated files from being modified manually
+    // "lockGenratedFiles": true,
 
-    /// (Optional, Default: false) Indicator if generated files should be kepted in Xcode Project when generating / updating project
-    /// "includeGeneratedFilesInXcodeProject": false,
+    // (Optional, Default: false) Indicator if generated files should be kepted in Xcode Project when generating / updating project
+    // "includeGeneratedFilesInXcodeProject": false,
 
-    /// (Optional, Default: never) Indicator if, when generating Xcode Project file, the application should install SwiftLint Build Phase Run Script if SwiftLint is installed.  Options: always, whenAvailable, never
-    /// "includeSwiftLintInXcodeProject": "never",
+    // (Optional, Default: never) Indicator if, when generating Xcode Project file, the application should install SwiftLint Build Phase Run Script if SwiftLint is installed.  Options: always, whenAvailable, never
+    // "includeSwiftLintInXcodeProject": "never",
 
-    /// (Optional, Default: false) Indicator if we should try to auto install any missing system packages from the package manager
-    /// when requirements are found within the project, otherwise we will just give a warning.
-    /// Note: If dswift was built with the flag AUTO_INSTALL_PACKAGES.  This property is always true no matter what the configuration value is set to
-    /// "autoInstallMissingPackages": false
+    // (Optional, Default: false) Indicator if we should try to auto install any missing system packages from the package manager
+    // when requirements are found within the project, otherwise we will just give a warning.
+    // Note: If dswift was built with the flag AUTO_INSTALL_PACKAGES.  This property is always true no matter what the configuration value is set to
+    // "autoInstallMissingPackages": false,
+    
+    // (Optional, Default: null/nil) Provides an option to override the default gitignore contents that dswift generates
+    // "defaultGitIgnore": {
+    //      "items": [
+    //          "Rule",
+    //          "# Comment",
+    //      ],
+    //      "sections": [
+    //          {
+    //              "name": "Section Name",
+    //              "description": [
+    //                  "Description array seperated by lines",
+    //              ],
+    //              "items": [
+    //                  "Rule",
+    //                  "# Comment",
+    //              ],
+    //              subsections: [
+    //                  {
+    //                      "name": "Sub Section Name",
+    //                      "items": [
+    //                          "Rule",
+    //                          "# Comment",
+    //                      ],
+    //                  },
+    //              ]
+    //          },
+    //      ]
+    // },
+
+    // (Optional, Default: null/nil) Provides an option to add additional items to the gitignore.
+    // This structure is the same as defaultGitIgnore.  This object will be combined with the
+    // default gitignore in the following way:
+    // 1. All comments are ignored.
+    // 2. I will first try and and see if the rule exists somewhere else before adding
+    // 3. If the default gitignore has the same section with no description, the addition description will
+    //   be copied
+    // 4. Any sections/subsections that become empty due to rules already existing will not be added
+    
+    // "gitIgnoreAdditions": {
+    //      "items": [
+    //          "Rule",
+    //      ],
+    //      "sections": [
+    //          {
+    //              "name": "Section Name",
+    //              "description": [
+    //                  "Description array seperated by lines",
+    //              ],
+    //              "items": [
+    //                  "Rule",
+    //              ],
+    //              subsections: [
+    //                  {
+    //                      "name": "Sub Section Name",
+    //                      "items": [
+    //                          "Rule",
+    //                      ],
+    //                  },
+    //              ]
+    //          },
+    //      ]
+    // },
 }
 """
     /// Method for setting up default dswift configuration
