@@ -1094,7 +1094,9 @@ extension Commands {
     /// Clean any swift files build from dswift
     private static func cleanDSwiftBuilds() throws {
         verbosePrint("Loading package details")
-        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath, packagePath: currentProjectPath)
+        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath,
+                                                    packagePath: currentProjectPath,
+                                                    loadDependencies: false)
         verbosePrint("Package details loaded")
         
         for t in packageDetails.targets {
@@ -1355,6 +1357,12 @@ extension Commands {
             guard typeParamIndex < args.count - 1 else { return "" }
             return args[typeParamIndex + 1]
         }()
+        
+        if let toolVer = settings.defaultPackageInitToolsVersion {
+            // Set package tool-version
+            _ = Commands.commandSwift(["package", "tools-version", "--set", toolVer])
+        }
+        
         try settings.readme.write(to: currentProjectURL.appendingPathComponent("README.md"),
                                   for: packageType.lowercased(),
                                   withName: currentProjectURL.lastPathComponent,
@@ -1364,26 +1372,44 @@ extension Commands {
         try settings.license.write(to: currentProjectURL.appendingPathComponent("LICENSE.md"))
         
         let gitIgnoreURL: URL = currentProjectURL.appendingPathComponent(".gitignore")
+        
+        var workingGitIgnoreFile = GitIgnoreFile.default
+        if let gitIgnoreAdditions = settings.gitIgnoreAdditions {
+            // Add Config git ignore additions
+            workingGitIgnoreFile += gitIgnoreAdditions
+        }
+        
         if FileManager.default.fileExists(atPath: gitIgnoreURL.path) {
             do {
-                var file = try StringFile(gitIgnoreURL.path)
+                let currentGitIgnore = try GitIgnoreFile(atPath: gitIgnoreURL.path)
+                // Add existing gitignore settings
+                workingGitIgnoreFile += currentGitIgnore
+                
+                /*var file = try StringFile(gitIgnoreURL.path)
                 if !file.contains("Package.resolved") {
                     if !file.hasSuffix("\n") { file += "\n" }
                     file += "Package.resolved"
                     
                     try file.save()
-                }
+                }*/
             } catch { }
         }
         
-        if retCode == 0 {
-            let genXcodeProj: Bool = settings.generateXcodeProjectOnInit.canGenerated(forName: args.last!.lowercased())
-            
-            if genXcodeProj {
-                verbosePrint("Generating Xcode Project")
-                retCode = try processCommand(["package", "generate-xcodeproj"])
-            }
+        do {
+            verbosePrint("Updating .gitignore")
+            try workingGitIgnoreFile.save(to: gitIgnoreURL.path)
+        } catch {
+            errPrint("Failed to update .gitignore")
+            errPrint(error)
         }
+        
+        let genXcodeProj: Bool = settings.generateXcodeProjectOnInit.canGenerated(forName: args.last!.lowercased())
+        
+        if genXcodeProj {
+            verbosePrint("Generating Xcode Project")
+            retCode = try processCommand(["package", "generate-xcodeproj"])
+        }
+        
         
         return retCode
     }
@@ -1395,7 +1421,9 @@ extension Commands {
         
         var returnCode: Int32 = 0
         verbosePrint("Loading package details")
-        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath, packagePath: currentProjectPath)
+        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath,
+                                                    packagePath: currentProjectPath,
+                                                    loadDependencies: false)
         verbosePrint("Package details loaded")
         
         let packageURL: URL = currentProjectURL
