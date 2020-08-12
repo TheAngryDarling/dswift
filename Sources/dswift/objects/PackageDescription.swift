@@ -314,9 +314,9 @@ public struct PackageDescription {
         dumpTask.standardInput = FileHandle.nullDevice
         #endif
         let dumpPipe = Pipe()
+        let dumpErrPipe = Pipe()
         dumpTask.standardOutput = dumpPipe
-        dumpTask.standardError = FileHandle.nullDevice //dumpPipe
-        
+        dumpTask.standardError = dumpErrPipe //FileHandle.nullDevice //dumpPipe
         try dumpTask.execute()
         dumpTask.waitUntilExit()
         
@@ -410,8 +410,7 @@ public struct PackageDescription {
             throw Error.unableToTransformDependenciesIntoObjects(error, data, String(data: data, encoding: .utf8))
         }
         
-        let rootDep = try Dependency(dep, swiftPath: swiftPath)
-        self.dependencies = rootDep.dependencies
+        self.dependencies = try dep.dependencies.map({ return try Dependency($0, swiftPath: swiftPath) })
     }
 }
 
