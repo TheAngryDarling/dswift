@@ -1556,7 +1556,7 @@ extension Commands {
             }
         }
         
-        let removeReferences: [String] = ["DerivedData"]
+        let removeReferences: [String] = ["DerivedData", "build"]
         for reference in removeReferences {
             let referencePath = xcodeProject.projectFolder.appendingFileComponent(reference)
             if try xcodeProject.fsProvider.itemExists(at: referencePath) {
