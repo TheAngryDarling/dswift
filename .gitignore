@@ -1,4 +1,6 @@
 .DS_Store
+/build
+/DerivedData
 /.build
 /Packages
 /*.xcodeproj
