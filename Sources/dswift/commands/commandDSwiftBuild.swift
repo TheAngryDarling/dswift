@@ -148,7 +148,7 @@ extension Commands {
             try checkTask.execute()
             checkTask.waitUntilExit()
             
-            guard task.terminationStatus == 0 else {
+            guard checkTask.terminationStatus == 0 else {
                 errPrint("ERROR: Unable to verify package \(package)")
                 continue
             }
