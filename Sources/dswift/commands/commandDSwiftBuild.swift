@@ -363,7 +363,7 @@ extension Commands {
         let packageURL: URL = URL(fileURLWithPath: packageDetails.path)
         //let packageName: String = packageURL.lastPathComponent
         
-        let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
+        let xCodeProjectURL = packageURL.resolvingSymlinksInPath().appendingPathComponent("\(packageDetails.name).xcodeproj")
         
         var xcodeProject: XcodeProject? = nil // swiftlint:disable:this redundant_optional_initializer
         if FileManager.default.fileExists(atPath: xCodeProjectURL.path) {
@@ -386,7 +386,7 @@ extension Commands {
             if canDoTarget {
                 hasProcessedTarget = true
                 verbosePrint("Looking at target: \(t.name)")
-                let targetPath = URL(fileURLWithPath: t.path, isDirectory: true)
+                let targetPath = URL(fileURLWithPath: t.path).resolvingSymlinksInPath()
                 try processFolder(generator: generator,
                                   inTarget: t.name,
                                   folder: targetPath,
@@ -456,7 +456,7 @@ extension Commands {
            let packageURL: URL = URL(fileURLWithPath: packageDetails.path)
            //let packageName: String = packageURL.lastPathComponent
            
-           let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
+           let xCodeProjectURL = packageURL.resolvingSymlinksInPath().appendingPathComponent("\(packageDetails.name).xcodeproj")
            var xcodeProject: XcodeProject? = nil
            if FileManager.default.fileExists(atPath: xCodeProjectURL.path) {
                verbosePrint("Loading Xcode project")

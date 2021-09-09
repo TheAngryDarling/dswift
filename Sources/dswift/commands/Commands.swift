@@ -63,7 +63,7 @@ public struct Commands {
             guard FileManager.default.fileExists(atPath: path) else { continue}
             
             // Build url to the command within the path
-            let cmdURL = URL(fileURLWithPath: path, isDirectory: true).appendingPathComponent(command, isDirectory: false)
+            let cmdURL = URL(fileURLWithPath: path).resolvingSymlinksInPath().appendingPathComponent(command)
             
             // Make sure the full command path exists
             guard FileManager.default.fileExists(atPath: cmdURL.path) else { continue }

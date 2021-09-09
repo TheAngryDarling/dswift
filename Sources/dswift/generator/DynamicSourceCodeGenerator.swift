@@ -129,7 +129,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     private var commonClassCounter: Int = 0
     private let commonClassLock: DispatchQueue = DispatchQueue(label: "ClassCounterLock")
     
-    private let tempLocation: URL = { return URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(String.random(), isDirectory: true) } ()
+    private let tempLocation: URL = { return URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(String.random()) } ()
     
     private let swiftPath: String
     
@@ -245,7 +245,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         let moduleName: String = getNextLibraryName()
         let clsName: String = getNextClassName()
         
-        let projectDestination = tempLocation.appendingPathComponent(moduleName, isDirectory: true)
+        let projectDestination = tempLocation.appendingPathComponent(moduleName)
     
         if FileManager.default.fileExists(atPath: projectDestination.path) {
             do {
@@ -266,7 +266,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         verbosePrint("Created temp project folder \(projectDestination.path)")
         
         
-        let sourceFolder = projectDestination.appendingPathComponent("Sources", isDirectory: true)
+        let sourceFolder = projectDestination.appendingPathComponent("Sources")
         do {
             try FileManager.default.createDirectory(at: sourceFolder,
                                                     withIntermediateDirectories: false)
@@ -277,7 +277,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         
         verbosePrint("Created Sources folder")
         
-        let moduleSourceFolder = sourceFolder.appendingPathComponent(moduleName, isDirectory: true)
+        let moduleSourceFolder = sourceFolder.appendingPathComponent(moduleName)
         do {
             try FileManager.default.createDirectory(at: moduleSourceFolder,
                                                     withIntermediateDirectories: false)

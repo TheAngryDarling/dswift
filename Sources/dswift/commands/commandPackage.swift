@@ -1102,7 +1102,7 @@ extension Commands {
         for t in packageDetails.targets {
             
             verbosePrint("Looking at target: \(t.name)")
-            let targetPath = URL(fileURLWithPath: t.path, isDirectory: true)
+            let targetPath = URL(fileURLWithPath: t.path).resolvingSymlinksInPath()
             
             try generator.clean(folder: targetPath)
             //try cleanFolder(fileExtensions: GroupGenerator.supportedExtensions, folder: targetPath)
@@ -1113,10 +1113,10 @@ extension Commands {
     private static func resetDSwiftBuilds() throws {
         // get the current project folder
         let workingDir = currentProjectPath
-        let workingURL = URL(fileURLWithPath: workingDir, isDirectory: true)
+        let workingURL = URL(fileURLWithPath: workingDir).resolvingSymlinksInPath()
         let urls: [URL] = [
-                            workingURL.appendingPathComponent("Sources", isDirectory: true),
-                            workingURL.appendingPathComponent("Tests", isDirectory: true),
+                            workingURL.appendingPathComponent("Sources"),
+                            workingURL.appendingPathComponent("Tests"),
                            ]
         for url in urls {
             if FileManager.default.fileExists(atPath: url.path) {
@@ -1426,10 +1426,10 @@ extension Commands {
                                                     loadDependencies: false)
         verbosePrint("Package details loaded")
         
-        let packageURL: URL = currentProjectURL
+        let packageURL: URL = currentProjectURL.resolvingSymlinksInPath()
         //let packageName: String = packageURL.lastPathComponent
         
-        let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj", isDirectory: true)
+        let xCodeProjectURL = packageURL.appendingPathComponent("\(packageDetails.name).xcodeproj")
         
         guard FileManager.default.fileExists(atPath: xCodeProjectURL.path) else {
             errPrint("Project not found. \(xCodeProjectURL.path)")
