@@ -94,7 +94,7 @@ arguments.removeFirst() //First parameter is the application path
 #endif
 
 
-let task = Process()
+let task = newProcess()
 
 task.executable = URL(fileURLWithPath: settings.swiftPath)
 task.arguments = ["--version"]

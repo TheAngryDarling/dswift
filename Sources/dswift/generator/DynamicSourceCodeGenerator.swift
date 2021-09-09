@@ -331,7 +331,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     
     private func buildModule(sourcePath: String, moduleLocation: URL) throws -> String {
         verbosePrint("Compiling generator")
-        var task = Process()
+        var task = newProcess()
         
         var pipe = Pipe()
         
@@ -372,7 +372,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
             //throw "Building Library for '\(sourcePath)' failed.\(task.terminationStatus).\(errStr)"
         }
         
-        task = Process()
+        task = newProcess()
         pipe = Pipe()
         
         task.executable = URL(fileURLWithPath: swiftPath)
@@ -410,7 +410,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         let outputFile: String = workingFolder + "/" + "swift.out"
         defer { try? FileManager.default.removeItem(atPath: outputFile) }
         
-        let task = Process()
+        let task = newProcess()
         
         let pipe = Pipe()
         

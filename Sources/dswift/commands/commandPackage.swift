@@ -1306,7 +1306,7 @@ extension Commands {
     /// swift package generate-xcodeproj catcher
     private static func commandPackageHelp(_ args: [String]) throws -> Int32 {
         
-        let task = Process()
+        let task = newProcess()
         
         task.executable = URL(fileURLWithPath: settings.swiftPath)
         task.arguments = args

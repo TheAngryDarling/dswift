@@ -13,7 +13,7 @@ extension Commands {
     /// Execute swift command
     static func commandSwift(_ args: [String]) -> Int32 {
         if args.contains("--help") {
-            let task = Process()
+            let task = newProcess()
             
             task.executable = URL(fileURLWithPath: settings.swiftPath)
             task.arguments = args
@@ -42,7 +42,7 @@ extension Commands {
             return task.terminationStatus
             
         } else {
-            let task = Process()
+            let task = newProcess()
             
             task.executable = URL(fileURLWithPath: settings.swiftPath)
             task.arguments = args

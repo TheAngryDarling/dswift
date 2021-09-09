@@ -250,7 +250,7 @@ public struct PackageDescription {
             throw Error.missingPackageFile(packageFileURL.path)
         }
         
-        let task = Process()
+        let task = newProcess()
         
         task.executable = URL(fileURLWithPath: swiftPath)
         task.currentDirectory = URL(fileURLWithPath: packagePath)
@@ -303,7 +303,7 @@ public struct PackageDescription {
             throw Error.unableToTransformDescriptionIntoObjects(error, data, String(data: data, encoding: .utf8))
         }
         
-        let dumpTask = Process()
+        let dumpTask = newProcess()
         
         dumpTask.executable = URL(fileURLWithPath: swiftPath)
         dumpTask.currentDirectory = URL(fileURLWithPath: packagePath)
@@ -371,7 +371,7 @@ public struct PackageDescription {
             return
         }
         
-        let depTask = Process()
+        let depTask = newProcess()
         
         depTask.executable = URL(fileURLWithPath: swiftPath)
         depTask.currentDirectory = URL(fileURLWithPath: packagePath)

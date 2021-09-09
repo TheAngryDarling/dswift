@@ -114,7 +114,7 @@ extension Commands {
             if !hasUpdatedList {
                 hasUpdatedList = true
                 verbosePrint("Updating packages list")
-                let updateTask = Process()
+                let updateTask = newProcess()
                 updateTask.executable = URL(fileURLWithPath: commandPath)
                 updateTask.arguments = ["update"]
 
@@ -135,7 +135,7 @@ extension Commands {
             }
             
             // Check to see if already installed
-            let checkTask = Process()
+            let checkTask = newProcess()
             checkTask.executable = URL(fileURLWithPath: commandPath)
             checkTask.arguments = ["info", package]
             
@@ -176,7 +176,7 @@ extension Commands {
             
             verbosePrint("Installing package \(package)")
             
-            let installTask = Process()
+            let installTask = newProcess()
             installTask.executable = URL(fileURLWithPath: commandPath)
             installTask.arguments = ["install", package]
             
@@ -225,7 +225,7 @@ extension Commands {
             if !hasUpdatedList {
                 hasUpdatedList = true
                 verbosePrint("Updating packages list")
-                let updateTask = Process()
+                let updateTask = newProcess()
                 updateTask.executable = URL(fileURLWithPath: commandPath)
                 updateTask.arguments = ["update"]
 
@@ -245,7 +245,7 @@ extension Commands {
             }
             
             // Check to see if already installed
-            let checkTask = Process()
+            let checkTask = newProcess()
             checkTask.executable = URL(fileURLWithPath: dpkgPath)
             checkTask.arguments = ["-l", package]
             
@@ -287,7 +287,7 @@ extension Commands {
             
             verbosePrint("Installing package \(package)")
             
-            let installTask = Process()
+            let installTask = newProcess()
             installTask.executable = URL(fileURLWithPath: commandPath)
             installTask.arguments = ["install", "-y", package]
             
