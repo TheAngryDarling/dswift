@@ -93,6 +93,8 @@ internal extension String {
         return rtn
     }
     
+    
+    
 }
 
 // Path Properties
@@ -156,7 +158,7 @@ internal extension String {
         return rtn
     }
     /// Returns a full path of the current relative string combined with the provided base string
-    func fullPath(from base: String) -> String {
+    func fullPath(from base: String = FileManager.default.currentDirectoryPath) -> String {
         guard !self.hasPrefix("/") else { return self }
         guard !self.hasPrefix("~/") else {
             return NSString(string: NSString(string: self).expandingTildeInPath).standardizingPath
