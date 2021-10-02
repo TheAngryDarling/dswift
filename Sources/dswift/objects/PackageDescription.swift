@@ -239,7 +239,7 @@ public struct PackageDescription {
         return rtn
     }
     
-    public init(swiftPath: String = "/usr/bin/swift",
+    public init(swiftPath: String = DSwiftSettings.defaultSwiftPath,
                 packagePath: String = FileManager.default.currentDirectoryPath,
                 loadDependencies: Bool) throws {
         if !FileManager.default.fileExists(atPath: swiftPath) { throw Error.missingSwift(swiftPath) }

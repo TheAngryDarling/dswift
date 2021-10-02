@@ -78,7 +78,7 @@ public protocol DynamicGenerator {
 }
 public extension DynamicGenerator {
     
-    init(swiftPath: String = "/usr/bin/swift",
+    init(swiftPath: String = DSwiftSettings.defaultSwiftPath,
          dSwiftModuleName: String,
          dSwiftURL: String,
          print: @escaping PRINT_SIG = { (message, filename, line, funcname) -> Void in Swift.print(message, terminator: "") },

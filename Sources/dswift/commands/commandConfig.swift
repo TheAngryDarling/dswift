@@ -12,8 +12,8 @@ extension Commands {
     // swiftlint:disable:next line_length
     private static let defaultConfig: String = """
 {
-    // (Optional, If not set /usr/bin/swift is used) The default swift path to use unless specificed in the command line
-    // "swiftPath": "/usr/bin/swift",
+    // (Optional, If not set \(DSwiftSettings.defaultSwiftPath) is used) The default swift path to use unless specificed in the command line
+    // "swiftPath": "\(DSwiftSettings.defaultSwiftPath)",
 
     // Sort files and folders within the project
     // "none":  No sorting

@@ -12,7 +12,7 @@ import SwiftPatches
 import VersionKit
 
 /// Settings structure for the config file
-struct DSwiftSettings {
+public struct DSwiftSettings {
     enum CodingKeys: String, CodingKey {
         case swiftPath
         case xcodeResourceSorting
@@ -244,8 +244,9 @@ struct DSwiftSettings {
         case never
     }
     
-    fileprivate static let defaultSwiftPath: String = "/usr/bin/swift"
-    /// The path to the swift to use (Default: /usr/bin/swift)
+    /// The default swift path
+    public static let defaultSwiftPath: String = "/usr/bin/swift"
+    /// The path to the swift to use (Default: DSwiftSettings.defaultSwiftPath)
     var swiftPath: String
     /// Indictor if the Xcode Project structure should be sorted or not
     let xcodeResourceSorting: FileResourceSorting
