@@ -39,8 +39,6 @@ let generator: GroupGenerator = try GroupGenerator(swiftPath: settings.swiftPath
                                                    debugPrint: Commands.generatorDebugPrint)
 let swiftVersion: Version.SingleVersion
 
-//var swiftPath: String = "/usr/bin/swift"
-
 typealias PreCommandFunc = ([String]) throws -> Int32
 
 typealias CustomCommandFunc = ([String]) throws -> Int32
@@ -173,7 +171,14 @@ public var currentProjectURL: URL {
 }*/
 
 func processCommand(_ swiftParams: [String]) throws -> Int32 {
+    var swiftParams = swiftParams
     guard let paramCommand = swiftParams.first else { return 0 }
+    
+    // Check for dswiftVerbose to manually enable dswifts verbose mode
+    if swiftParams.contains("--dswiftVerbose") {
+        verboseFlag = true
+        swiftParams.removeAll(where: { return $0 == "--dswiftVerbose" })
+    }
     
     if let cmd = customExecutionCommands[paramCommand] {
         // Execute custom command, skippnig auto-call to swift
