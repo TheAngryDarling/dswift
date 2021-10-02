@@ -11,12 +11,18 @@ import Foundation
 public struct Commands {
     private init() { }
     
+    private static func sanitizeDswiftFileNamePath(_ string: String) -> String {
+        guard let r = string.range(of: "dswift/Sources") else {
+            return string
+        }
+        return String(string[r.lowerBound..<string.endIndex])
+    }
     private static func buildPrintLine(_ message: String,
                                        _ filename: String,
                                        _ line: Int,
                                        _ funcname: String) -> String {
         
-        return "\(filename) - \(funcname)(\(line)): \(message)"
+        return "\(self.sanitizeDswiftFileNamePath(filename)) - \(funcname)(\(line)): \(message)"
     }
     
     /// Print function for the dswift generator
