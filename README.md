@@ -26,6 +26,7 @@ Supported bocks:
 * <%...%>: Regular block
 * <%! ... %>: Static Block - Code in here is declared outside the generator function.  This gives you access to declaring class properties, functions etc to use within the regular blocks
 * <%=...%>: Inline block - Used as a simple output tool for writing data to the generator
+* <%@include file="..." %>: Include dswift - Used to include an additional dswift file (dswiftInclude) into the given dswift file
 
 ## Dynamic Static Swift Files (.dswift-static)
 
