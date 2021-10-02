@@ -154,14 +154,13 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         return XcodeFileType.Text.json
     }
     
-    public func requiresSourceCodeGeneration(for source: String) throws -> Bool {
-        let source = URL(fileURLWithPath: source)
+    public func requiresSourceCodeGeneration(for source: URL) throws -> Bool {
+        let destination = try generatedFilePath(for: source)
+        
         let staticFile: StaticFile = try JSONDecoder().decode(StaticFile.self,
                                                            from: try Data(contentsOf: source))
         let staticFilePath = staticFile.file.fullPath(from: source.deletingLastPathComponent().path)
         let staticFileURL = URL(fileURLWithPath: staticFilePath)
-        
-        let destination = try generatedFilePath(for: source)
         
         // If the generated file does not exist, then return true
         guard FileManager.default.fileExists(atPath: destination.path) else {
@@ -175,6 +174,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
                 verbosePrint("Wasn't able to get all modification dates")
             return true
         }
+        
         // Source or static file is newer than destination, meaning we must rebuild
         guard srcMod <= desMod && staticSrcMod <= desMod else {
             if srcMod > desMod {
@@ -184,9 +184,12 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             }
             return true
         }
-        var enc: String.Encoding = .utf8
-        let fileContents = try String(contentsOf: destination, foundEncoding: &enc)
-        if fileContents.contains("// Failed to generate source code.") { return true }
+        
+        guard !(try self.checkForFailedGenerationCommentInDestination(for: source, destination: destination)) else {
+            return true
+        }
+        
+        
         return false
     }
     

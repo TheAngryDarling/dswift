@@ -508,6 +508,75 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         }
     }
     
+    // Check to see if any of the included files have been modified since the
+    // destination has been genreated
+    private func isGenerationOutOfSynceWithIncludes(generationDate: Date,
+                                                    originalSource: String,
+                                                    source: URL) throws -> Bool {
+        let includes = try DynamicSourceCodeBuilder.findIncludes(in: source.path)
+        for include in includes {
+            let includeURL = URL(fileURLWithPath: include.absoluePath)
+            guard let includeMod = includeURL.pathModificationDate else {
+                verbosePrint("Wasn't able to get modification date for '\(include.absoluePath)'")
+                return true
+            }
+            
+            guard includeMod <= generationDate else {
+                verbosePrint("'\(include.absoluePath)' has been modified since generation of '\(originalSource)'")
+                return true
+            }
+            
+            
+            guard !(try isGenerationOutOfSynceWithIncludes(generationDate: generationDate,
+                                                           originalSource: originalSource,
+                                                           source: includeURL)) else {
+                return true
+            }
+            
+            
+        }
+        
+        return false
+    }
+    
+    public func requiresSourceCodeGeneration(for source: URL) throws -> Bool {
+        let destination = try generatedFilePath(for: source)
+        
+        // If the generated file does not exist, then return true
+        guard FileManager.default.fileExists(atPath: destination.path) else {
+            verbosePrint("Generated file '\(destination.path)' does not exists")
+            return true
+        }
+        // Get the modification dates otherwise return true to rebuild
+        guard let srcMod = source.pathModificationDate,
+              let desMod = destination.pathModificationDate else {
+            verbosePrint("Wasn't able to get all modification dates")
+            return true
+        }
+        
+        // Source or static file is newer than destination, meaning we must rebuild
+        guard srcMod <= desMod else {
+            verbosePrint("'\(source.path)' is newer")
+            return true
+        }
+        
+        guard !(try self.checkForFailedGenerationCommentInDestination(for: source, destination: destination)) else {
+            return true
+        }
+        
+        verbosePrint("Checking for modified includes within '\(source.path)'")
+        // Check to see if any of the included files have been modified since the
+        // destination has been genreated
+        guard !(try self.isGenerationOutOfSynceWithIncludes(generationDate: desMod,
+                                                            originalSource: source.path,
+                                                            source: source)) else {
+            return true
+        }
+        
+        return false
+        
+    }
+    
     
     public func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource, inGroup group: XcodeGroup, havingTarget target: XcodeTarget) throws -> Bool {
         var rtn: Bool = false

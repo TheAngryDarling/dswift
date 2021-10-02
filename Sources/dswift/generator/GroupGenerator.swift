@@ -101,13 +101,10 @@ public extension DynamicGenerator {
     func generatedFileExists(for source: URL) throws -> Bool {
         return try generatedFileExists(for: source.path)
     }
-    func requiresSourceCodeGeneration(for source: String) throws -> Bool {
-        let source = URL(fileURLWithPath: source)
-        let destination = try generatedFilePath(for: source)
-        
-        // If the generated file does not exist, then return true
+    /// Check to see if the generated fiel for the source file does not exist or that the destination file is older than the source file
+    func checkGeneratedFilesDoesNotExistOrIsOutOfSync(for source: URL, destination: URL) throws -> Bool {
         guard FileManager.default.fileExists(atPath: destination.path) else { return true }
-        // Get the modification dates otherwise return true to rebuild
+        
         verbosePrint("[\(source.lastPathComponent), \(destination.lastPathComponent)] Getting file modification dates")
         guard let srcMod = source.pathModificationDate, let desMod = destination.pathModificationDate else {
             return true
@@ -116,6 +113,15 @@ public extension DynamicGenerator {
         verbosePrint("[\(source.lastPathComponent), \(destination.lastPathComponent)] Comparing modification dates")
         guard srcMod <= desMod else { return true }
         
+        return false
+        
+    }
+    /// Check to see if the generated fiel for the source file does not exist or that the destination file is older than the source file
+    func checkGeneratedFilesDoesNotExistOrIsOutOfSync(for source: URL) throws -> Bool {
+        return try checkGeneratedFilesDoesNotExistOrIsOutOfSync(for: source,
+                                                                   destination: try generatedFilePath(for: source))
+    }
+    func checkForFailedGenerationCommentInDestination(for source: URL, destination: URL) throws -> Bool {
         verbosePrint("[\(destination.lastPathComponent)] Checking for failed comment")
         verbosePrint("[\(destination.lastPathComponent)] Loading file")
         verbosePrint("[\(destination.lastPathComponent)] Reachable: \(try destination.checkResourceIsReachable())")
@@ -125,10 +131,28 @@ public extension DynamicGenerator {
         if fileContents.contains("// Failed to generate source code.") { return true }
         verbosePrint("[\(destination.lastPathComponent)] Generated source is up-to-date")
         return false
-        
+    }
+    func checkForFailedGenerationCommentInDestination(for source: URL) throws -> Bool {
+        return try checkForFailedGenerationCommentInDestination(for: source,
+                                                                destination: try generatedFilePath(for: source))
     }
     func requiresSourceCodeGeneration(for source: URL) throws -> Bool {
-        return try requiresSourceCodeGeneration(for: source.path)
+        
+        let destination = try generatedFilePath(for: source)
+        
+        guard !(try self.checkGeneratedFilesDoesNotExistOrIsOutOfSync(for: source, destination: destination)) else {
+            return true
+        }
+        
+        guard !(try self.checkForFailedGenerationCommentInDestination(for: source, destination: destination)) else {
+            return true
+        }
+        
+        return false
+        
+    }
+    func requiresSourceCodeGeneration(for source: String) throws -> Bool {
+        return try requiresSourceCodeGeneration(for: URL(fileURLWithPath: source))
     }
     
     func generateSource(from source: String, to destination: String) throws {
