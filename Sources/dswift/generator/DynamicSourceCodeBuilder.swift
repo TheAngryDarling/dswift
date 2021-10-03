@@ -468,7 +468,7 @@ class DynamicSourceCodeBuilder {
     
     public static func findIncludes(in path: String) throws -> [IncludedFile] {
         var enc: String.Encoding = String.Encoding.utf8
-         let includeSrc = try String(contentsOfFile: path, usedEncoding: &enc)
+         let includeSrc = try String(contentsOfFile: path, foundEncoding: &enc)
         return try findIncludes(in: path, source: includeSrc)
     }
     
@@ -504,7 +504,7 @@ class DynamicSourceCodeBuilder {
             do {
                 verbosePrint("Reading include file '\(include.includePath)' / '\(include.absoluePath)' with unknown encoding")
                var enc: String.Encoding = String.Encoding.utf8
-                let includeSrc = try String(contentsOfFile: include.absoluePath, usedEncoding: &enc)
+                let includeSrc = try String(contentsOfFile: include.absoluePath, foundEncoding: &enc)
                 //verbosePrint("Read include file '\(includeFile)' with '\(enc)' encoding.")
                 
                 try DynamicSourceCodeBuilder.validateDSwiftToolsVersion(from: include.absoluePath,
