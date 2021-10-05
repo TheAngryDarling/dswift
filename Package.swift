@@ -9,14 +9,10 @@ let package = Package(
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
         
-        .package(url: "https://github.com/TheAngryDarling/SwiftXcodeProj.git", from: "1.0.7"),
-        .package(url: "https://github.com/TheAngryDarling/SwiftBasicCodableHelpers.git", from: "1.0.4"),
-        //.package(url: "https://github.com/TheAngryDarling/SwiftXcodeProj.git", .branch("master")),
-        //.package(url: "../../Packages/SwiftXcodeProj", .branch("master")),
-        //.package(path: "../../Packages/SwiftXcodeProj"),
-        
+        .package(url: "https://github.com/TheAngryDarling/SwiftXcodeProj.git", from: "1.0.8"),
+        .package(url: "https://github.com/TheAngryDarling/SwiftBasicCodableHelpers.git", from: "1.1.6"),
+    
         .package(url: "https://github.com/TheAngryDarling/SwiftPatches.git", from: "1.0.3"),
-        //.package(url: "../../Packages/SwiftPatches", .branch("master")),
         
         .package(url: "https://github.com/TheAngryDarling/SwiftVersionKit.git", from: "1.0.3"),
         .package(url: "https://github.com/TheAngryDarling/SwiftRegEx.git", from: "1.0.0")
