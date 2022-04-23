@@ -2,6 +2,7 @@
 /build
 /DerivedData
 /.build
+/.swiftpm
 /Packages
 /*.xcodeproj
 Package.resolved
