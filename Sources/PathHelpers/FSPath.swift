@@ -9,10 +9,10 @@ import Foundation
 import SwiftPatches
 
 public protocol FSPathObject {
-    /// The character used to seperate each path component
-    static var ComponentSeperator: Character { get }
-    /// The character uesd to seperate each path from a list of paths
-    static var PathSeperator: Character { get }
+    /// The character used to separate each path component
+    static var ComponentSeparator: Character { get }
+    /// The character uesd to separate each path from a list of paths
+    static var PathSeparator: Character { get }
     /// The File System Path
     var path: String { get }
     /// The base path for this path
@@ -137,11 +137,11 @@ public extension FSPathObject {
 /// Structure representing a File System Path
 public struct FSPath: FSPathObject {
     #if os(Windows)
-    public static let ComponentSeperator: Character = "\\"
-    public static let PathSeperator: Character = ";"
+    public static let ComponentSeparator: Character = "\\"
+    public static let PathSeparator: Character = ";"
     #else
-    public static let ComponentSeperator: Character = "/"
-    public static let PathSeperator: Character = ":"
+    public static let ComponentSeparator: Character = "/"
+    public static let PathSaperator: Character = ":"
     #endif
     
     public let path: String
@@ -173,11 +173,11 @@ public struct FSPath: FSPathObject {
 /// if any occurs
 public struct FSSafePath: FSPathObject {
     #if os(Windows)
-    public static let ComponentSeperator: Character = "\\"
-    public static let PathSeperator: Character = ";"
+    public static let ComponentSeparator: Character = "\\"
+    public static let PathSeparator: Character = ";"
     #else
-    public static let ComponentSeperator: Character = "/"
-    public static let PathSeperator: Character = ":"
+    public static let ComponentSeparator: Character = "/"
+    public static let PathSeparator: Character = ":"
     #endif
     
     public let path: String
