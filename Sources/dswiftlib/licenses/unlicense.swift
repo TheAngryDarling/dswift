@@ -1,6 +1,6 @@
 //
 //  unlicense.swift
-//  dswift
+//  dswiftlib
 //
 //  Created by Tyler Anger on 2019-07-24.
 //
@@ -8,7 +8,9 @@
 import Foundation
 
 public extension Licenses {
-    static func unlicense() -> String { return """
+    /// Returns the Unlicense license full text
+    static func unlicense(authorName: String? = nil,
+                          date: Date = Date()) -> String { return """
 This is free and unencumbered software released into the public domain.
 
 Anyone is free to copy, modify, publish, use, compile, sell, or
@@ -35,8 +37,22 @@ OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org>
 """
     }
-    
-    static func unlicense_README() -> String {
-        return defaultLicenseReadMe(license: .unlicense)
+    /// Returns the Unlicense license full text
+    static func unlicense(settings: DSwiftSettings,
+                          date: Date = Date()) -> String {
+        return unlicense(authorName: settings.authorName, date: date)
+    }
+    /// Returns the Unlicense license readme text
+    static func unlicense_README(authorName: String? = nil,
+                                 date: Date = Date()) -> String {
+        return defaultLicenseReadMe(authorName: authorName,
+                                    date: date,
+                                    license: .unlicense)
+    }
+    /// Returns the Unlicense license readme text
+    static func unlicense_README(settings: DSwiftSettings,
+                                 date: Date = Date()) -> String {
+        return unlicense_README(authorName: settings.authorName,
+                                date: date)
     }
 }

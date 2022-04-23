@@ -1,15 +1,19 @@
 //
 //  StringFile.swift
-//  dswift
+//  dswiftlib
 //
 //  Created by Tyler Anger on 2019-08-11.
 //
 
 import Foundation
 
+/// Object repesenting a file of text
 public struct StringFile {
+    /// The path to the file
     private let path: String
+    /// The content of the file
     private var content: String = ""
+    /// The encoding of the string file
     private var encoding: String.Encoding = .utf8
     
     /// A Boolean value indicating whether a string has no characters.
@@ -51,6 +55,8 @@ public struct StringFile {
     public subscript(r: Range<String.Index>) -> Substring { return self.content[r] }
     public subscript(i: String.Index) -> Character { return self.content[i] }
     
+    /// Create a new object representing a file of text
+    /// - Parameter path: The path to the file
     public init(_ path: String) throws {
         let pth = NSString(string: path).expandingTildeInPath
         self.path = pth
@@ -60,7 +66,7 @@ public struct StringFile {
             //self.encoding = self.content.fastestEncoding
         }
     }
-    
+    /// Safe the text to the file
     public func save() throws {
         try self.content.write(toFile: self.path, atomically: true, encoding: self.encoding)
     }
@@ -594,6 +600,16 @@ public struct StringFile {
     /// - Complexity: O(1)
     public func suffix(from start: String.Index) -> Substring {
         return self.content.suffix(from: start)
+    }
+    
+    public func range<T>(of aString: T,
+                         options mask: String.CompareOptions = [],
+                         range searchRange: Range<String.Index>? = nil,
+                         locale: Locale? = nil) -> Range<String.Index>? where T : StringProtocol {
+        return self.content.range(of: aString,
+                                  options: mask,
+                                  range: searchRange,
+                                  locale: locale)
     }
     
 }

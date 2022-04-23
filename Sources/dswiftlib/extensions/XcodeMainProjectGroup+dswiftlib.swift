@@ -1,6 +1,6 @@
 //
-//  XcodeMainProjectGroup+dswift.swift
-//  dswiftPackageDescription
+//  XcodeMainProjectGroup+dswiftlib.swift
+//  dswiftlib
 //
 //  Created by Tyler Anger on 2019-09-20.
 //
@@ -8,8 +8,8 @@
 import Foundation
 import XcodeProj
 
-internal extension XcodeGroup {
-    // The relative path from the root of the project
+public extension XcodeGroup {
+    /// The relative path from the root of the project
     var relativePath: String {
         var path = self.fullPath
         let rootPath = self.mainGroup.fullPath
@@ -20,23 +20,32 @@ internal extension XcodeGroup {
         return path
     }
 }
-internal extension XcodeMainProjectGroup {
+public extension XcodeMainProjectGroup {
     enum MainGroupErrors: Error, CustomStringConvertible {
         case groupFullPathMustStartWithSlash(String)
         
-        var description: String {
+        public var description: String {
             switch self {
-            case .groupFullPathMustStartWithSlash(let path): return "Group Path '\(path)' must start with a slash(/)"
+                case .groupFullPathMustStartWithSlash(let path):
+                    return "Group Path '\(path)' must start with a slash(/)"
             }
         }
     }
-    
+    /// Options for when retrieving Sub Group
     enum SubGroupGetOptions {
+        /// Get Sub Group only.  If not exist then return nil
         case get
+        /// Get Sub Group, if not exist then create
+        /// Options for creating intermediary folders
+        /// Options for saving PBX File automatically
         case createIfNeed(createFolders: Bool, savePBXFile: Bool)
         
-        public static var createAndSave: SubGroupGetOptions { return .createIfNeed(createFolders: true, savePBXFile: true) }
-        public static var createOnly: SubGroupGetOptions { return .createIfNeed(createFolders: false, savePBXFile: false) }
+        public static var createAndSave: SubGroupGetOptions {
+            return .createIfNeed(createFolders: true, savePBXFile: true)
+        }
+        public static var createOnly: SubGroupGetOptions {
+            return .createIfNeed(createFolders: false, savePBXFile: false)
+        }
     }
     
     /// Creates a sub group somewhere under the project
@@ -46,8 +55,12 @@ internal extension XcodeMainProjectGroup {
     ///   - createFolder: An indicator if a folder(s) on the file system shoud be created for this group (Default: true)
     ///   - savePBXFile: An indicator if the PBX Project File should be saved at this time (Default: true)
     /// - Returns: Returns the newly created group
-    func createSubGroup(atPath path: String, createFolders: Bool = true, savePBXFile: Bool = true) throws -> XcodeGroup {
-        guard path.hasPrefix("/") else { throw MainGroupErrors.groupFullPathMustStartWithSlash(path) }
+    func createSubGroup(atPath path: String,
+                        createFolders: Bool = true,
+                        savePBXFile: Bool = true) throws -> XcodeGroup {
+        guard path.hasPrefix("/") else {
+            throw MainGroupErrors.groupFullPathMustStartWithSlash(path)
+        }
         var groups: [String] = path.split(separator: "/").map(String.init)
         var currentGroup: XcodeGroup = self
         while groups.count > 0 {
@@ -67,9 +80,15 @@ internal extension XcodeMainProjectGroup {
     /// Get sub group at the given path.  If group doesn't exist and options is set to create, then this method will create the new sub group and required parents before returning the group
     /// - Parameter path: The full path (from the project root) to the group (Must start with a slash(/) )
     /// - Parameter options: Options on wether to just try and get the group, or create if doesn't exist
-    func subGroup(atPath path: String, options: SubGroupGetOptions = .get) throws -> XcodeGroup? {
+    func subGroup(atPath path: String,
+                  options: SubGroupGetOptions = .get) throws -> XcodeGroup? {
         if let g = self.group(atPath: path) { return g }
-        guard case .createIfNeed(createFolders: let createFolders, savePBXFile: let savePBX) = options else { return nil }
-        return try self.createSubGroup(atPath: path, createFolders: createFolders, savePBXFile: savePBX)
+        guard case .createIfNeed(createFolders: let createFolders,
+                                 savePBXFile: let savePBX) = options else {
+            return nil
+        }
+        return try self.createSubGroup(atPath: path,
+                                       createFolders: createFolders,
+                                       savePBXFile: savePBX)
     }
 }

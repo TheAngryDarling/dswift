@@ -1,6 +1,6 @@
 //
 //  mozilla2_0.swift
-//  dswift
+//  dswiftlib
 //
 //  Created by Tyler Anger on 2019-07-24.
 //
@@ -8,7 +8,9 @@
 import Foundation
 
 public extension Licenses {
-    static func mozilla2_0() -> String { return """
+    /// Returns the Mozilla 2.0 license full text
+    static func mozilla2_0(authorName: String? = nil,
+                           date: Date = Date()) -> String { return """
 Mozilla Public License Version 2.0
 ==================================
 
@@ -384,8 +386,19 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 """
     }
-    
-    static func mozilla2_0_README() -> String {
-        return defaultLicenseReadMe(license: .mozilla2_0)
+    /// Returns the Mozilla 2.0 license full text
+    static func mozilla2_0(settings: DSwiftSettings,
+                           date: Date = Date()) -> String {
+        return mozilla2_0(authorName: settings.authorName, date: date)
+    }
+    /// Returns the Mozilla 2.0 license readme text
+    static func mozilla2_0_README(authorName: String? = nil,
+                                  date: Date = Date()) -> String {
+        return defaultLicenseReadMe(authorName: authorName, date: date, license: .mozilla2_0)
+    }
+    /// Returns the Mozilla 2.0 license readme text
+    static func mozilla2_0_README(settings: DSwiftSettings,
+                                  date: Date = Date()) -> String {
+        return mozilla2_0_README(authorName: settings.authorName, date: date)
     }
 }

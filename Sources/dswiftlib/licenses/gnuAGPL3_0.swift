@@ -1,6 +1,6 @@
 //
 //  gnuAGPL3_0.swift
-//  dswift
+//  dswiftlib
 //
 //  Created by Tyler Anger on 2019-07-24.
 //
@@ -8,7 +8,9 @@
 import Foundation
 
 public extension Licenses {
-    static func gnuAGPL3_0() -> String { return """
+    /// Returns the GNU AGPL 3.0 license full text
+    static func gnuAGPL3_0(authorName: String? = nil,
+                           date: Date = Date()) -> String { return """
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 
@@ -628,9 +630,16 @@ Program, unless a warranty or assumption of liability accompanies a
 copy of the Program in return for a fee.
 """
     }
-
-    static func gnuAGPL3_0_README() -> String { return """
-*Copyright (C) \(Calendar.current.component(.year, from: Date())) \(settings.authorName ?? "")*
+    /// Returns the GNU AGPL 3.0 license full text
+    static func gnuAGPL3_0(settings: DSwiftSettings,
+                           date: Date = Date()) -> String {
+        return gnuAGPL3_0(authorName: settings.authorName,
+                          date: date)
+    }
+    /// Returns the GNU AGPL 3.0 license readme text
+    static func gnuAGPL3_0_README(authorName: String? = nil,
+                                  date: Date = Date()) -> String { return """
+*Copyright (C) \(Calendar.current.component(.year, from: date)) \(authorName ?? "")*
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as published
@@ -645,5 +654,10 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see [HERE](LICENSE.md) or [https://www.gnu.org/licenses/](https://www.gnu.org/licenses/).
 """
+    }
+    /// Returns the GNU AGPL 3.0 license readme text
+    static func gnuAGPL3_0_README(settings: DSwiftSettings,
+                                  date: Date = Date()) -> String {
+        return gnuAGPL3_0_README(authorName: settings.authorName, date: date)
     }
 }

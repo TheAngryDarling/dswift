@@ -1,6 +1,6 @@
 //
-//  String+dswift.swift
-//  dswift
+//  String+dswiftlib.swift
+//  dswiftlib
 //
 //  Created by Tyler Anger on 2018-12-04.
 //
@@ -71,6 +71,11 @@ internal extension String {
         return rtn
     }
     
+    /// Counts a the number of times a string occurs
+    func countOccurrences<Target>(of string: Target, before: String.Index) -> Int where Target : StringProtocol {
+        return self.countOccurrences(of: string, inRange: self.startIndex..<before)
+    }
+    
     /// Trims any spaces from the right side of the given string
     func rtrim() -> String {
         var rtn: String = self
@@ -97,7 +102,7 @@ internal extension String {
     
 }
 
-// Path Properties
+// MARK: - Path Properties
 internal extension String {
     /// Gets the path components of the given string
     var pathComponents: [String] {
@@ -138,7 +143,9 @@ internal extension String {
             comps.removeLast()
         }
         let file = comps[comps.count - 1]
-        guard let idx = file.lastIndex(of: ".") else { return "" }
+        guard let idx = file.range(of: ".", options: .backwards)?.lowerBound else {
+            return ""
+        }
         return String(file.suffix(from: file.index(after: idx)))
     }
     
@@ -148,7 +155,7 @@ internal extension String {
         if comps.count > 1 && comps[comps.count - 1] == "/" {
             comps.removeLast()
         }
-        if let idx = comps[comps.count - 1].lastIndex(of: ".") {
+        if let idx = comps[comps.count - 1].range(of: ".", options: .backwards)?.lowerBound {
             comps[comps.count - 1] = String(comps[comps.count - 1].prefix(upTo: idx))
         }
         var startValue = comps.removeFirst()
@@ -168,5 +175,107 @@ internal extension String {
         if !rtn.hasSuffix("/") { rtn += "/" }
         rtn += self
         return NSString(string: rtn).standardizingPath
+    }
+    
+    var resolvingSymlinksInPath: String {
+        return NSString(string: self).resolvingSymlinksInPath
+    }
+}
+/*
+internal extension String {
+    #if swift(>=4.1)
+    func adjust(_ range: Range<String.Index>,
+                offsetBy offset: Int) -> Range<String.Index> {
+        return self.index(range.lowerBound, offsetBy: offset)..<self.index(range.upperBound, offsetBy: offset)
+    }
+    #else
+    func adjust(_ range: Range<String.Index>,
+                offsetBy offset: String.IndexDistance) -> Range<String.Index> {
+        return self.index(range.lowerBound, offsetBy: offset)..<self.index(range.upperBound, offsetBy: offset)
+    }
+    #endif
+}
+*/
+// MARK: - Distance Helpers
+internal extension String {
+    #if swift(>=4.1)
+    
+    /// Get the distance from the start of the string to the given index
+    /// - Parameter index: The index to stop counting at
+    /// - Returns: The distance between the beginning of the string to the given index.
+    func distance(to index: String.Index) -> Int {
+        return self.distance(from: self.startIndex, to: index)
+    }
+    
+    /// Get the distance from the given index to the end of the string
+    /// - Parameter index: The index to start counting the distance from
+    /// - Returns: The distance between the given index and the end of the string
+    func distance(from index: String.Index) -> Int {
+        return self.distance(from: index, to: self.endIndex)
+    }
+    /// Returns the start index offset by the given distance
+    func index(offsetBy offset: Int) -> String.Index {
+        return self.index(self.startIndex, offsetBy: offset)
+    }
+    
+    func index(before offset: Int) -> String.Index {
+        let currentIndex = self.index(offsetBy: offset)
+        return self.index(before: currentIndex)
+    }
+    /// Converts a  Range of String Indexes into a range of String Distances
+    func distanceRange(of range: Range<String.Index>) -> Range<Int> {
+        let lowerBound = self.distance(to: range.lowerBound)
+        let upperBound = self.distance(to: range.upperBound)
+        return lowerBound..<upperBound
+    }
+    #else
+    /// Get the distance from the start of the string to the given index
+    /// - Parameter index: The index to stop counting at
+    /// - Returns: The distance between the beginning of the string to the given index.
+    func distance(to index: String.Index) -> String.IndexDistance {
+        return self.distance(from: self.startIndex, to: index)
+    }
+    /// Get the distance from the given index to the end of the string
+    /// - Parameter index: The index to start counting the distance from
+    /// - Returns: The distance between the given index and the end of the string
+    func distance(from index: String.Index) -> String.IndexDistance {
+        return self.distance(from: index, to: self.endIndex)
+    }
+    /// Returns the start index offset by the given distance
+    func index(offsetBy offset: String.IndexDistance) -> String.Index {
+        return self.index(self.startIndex, offsetBy: offset)
+    }
+    
+    func index(before offset: String.IndexDistance) -> String.Index {
+        let currentIndex = self.index(offsetBy: offset)
+        return self.index(before: currentIndex)
+    }
+    /// Converts a  Range of String Indexes into a range of String Distances
+    func distanceRange(of range: Range<String.Index>) -> Range<String.IndexDistance> {
+        let lowerBound = self.distance(to: range.lowerBound)
+        let upperBound = self.distance(to: range.upperBound)
+        return lowerBound..<upperBound
+    }
+    #endif
+}
+
+// MARK: - Replacement
+internal extension String {
+    mutating func replaceSubrange<C>(_ range: Range<Int>, with newElements: C) where C : Collection, C.Element == Character {
+        let lowerBound = self.index(offsetBy: range.lowerBound)
+        let upperBound = self.index(offsetBy: range.upperBound)
+        
+        return self.replaceSubrange(lowerBound..<upperBound, with: newElements)
+    }
+}
+
+internal extension String {
+    /// Returns a new string that is the given string encapsulatd with the given prefix and suffix
+    func encapsulate(prefix: String, suffix: String) -> String {
+        return prefix + self + suffix
+    }
+    /// Returns a new string that is the given string encapsulated with the provided value
+    func encapsulate(_ value: String) -> String {
+        return self.encapsulate(prefix: value, suffix: value)
     }
 }

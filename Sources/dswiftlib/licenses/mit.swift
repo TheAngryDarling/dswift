@@ -1,6 +1,6 @@
 //
 //  mit.swift
-//  dswift
+//  dswiftlib
 //
 //  Created by Tyler Anger on 2019-07-24.
 //
@@ -8,10 +8,12 @@
 import Foundation
 
 public extension Licenses {
-    static func mit() -> String { return """
+    /// Returns the MIT license full text
+    static func mit(authorName: String? = nil,
+                    date: Date = Date()) -> String { return """
 MIT License
 
-Copyright (c) \(Calendar.current.component(.year, from: Date())) \(settings.authorName ?? "")
+Copyright (c) \(Calendar.current.component(.year, from: date)) \(authorName ?? "")
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,8 +34,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
     }
-    
-    static func mit_README() -> String {
-        return defaultLicenseReadMe(license: .mit)
+    /// Returns the MIT license full text
+    static func mit(settings: DSwiftSettings,
+                    date: Date = Date()) -> String {
+        
+        return mit(authorName: settings.authorName, date: date)
+    }
+    /// Returns the MIT license readme text
+    static func mit_README(authorName: String? = nil,
+                           date: Date = Date()) -> String {
+        return defaultLicenseReadMe(authorName: authorName, date: date, license: .mit)
+    }
+    /// Returns the MIT license readme text
+    static func mit_README(settings: DSwiftSettings,
+                           date: Date = Date()) -> String {
+        return mit_README(authorName: settings.authorName, date: date)
     }
 }

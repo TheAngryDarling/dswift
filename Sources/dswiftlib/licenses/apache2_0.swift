@@ -1,6 +1,6 @@
 //
 //  apache2.swift
-//  dswift
+//  dswiftlib
 //
 //  Created by Tyler Anger on 2019-07-23.
 //
@@ -8,7 +8,8 @@
 import Foundation
 
 extension Licenses {
-    public static func apache2_0() -> String {
+    /// Returns the Apache 2.0 license full text
+    public static func apache2_0(authorName: String? = nil) -> String {
         return """
                                  Apache License
                            Version 2.0, January 2004
@@ -187,10 +188,14 @@ extension Licenses {
 
 """
     }
-    
-    public static func apache2_0_README() -> String {
+    /// Returns the Apache 2.0 license full text
+    public static func apache2_0(settings: DSwiftSettings) -> String {
+        return apache2_0(authorName: settings.authorName)
+    }
+    /// Returns the Apache 2.0 license readme text
+    public static func apache2_0_README(authorName: String? = nil, date: Date = Date()) -> String {
         return """
-*Copyright \(Calendar.current.component(.year, from: Date())) \(settings.authorName ?? "")*
+*Copyright \(Calendar.current.component(.year, from: date)) \(authorName ?? "")*
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -204,5 +209,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+    }
+    /// Returns the Apache 2.0 license readme text
+    public static func apache2_0_README(settings: DSwiftSettings, date: Date = Date()) -> String {
+        return apache2_0_README(authorName: settings.authorName, date: date)
     }
 }

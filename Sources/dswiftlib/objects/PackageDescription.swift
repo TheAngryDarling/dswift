@@ -1,6 +1,6 @@
 //
 //  PackageDescription.swift
-//  dswift
+//  dswiftlib
 //
 //  Created by Tyler Anger on 2018-12-04.
 //
@@ -8,6 +8,7 @@
 import Foundation
 import SwiftPatches
 import RegEx
+import CLICapture
 
 fileprivate extension Array where Element == Dictionary<String, Array<Array<String>>> {
     // Convert providers to a more normalized structure
@@ -61,6 +62,7 @@ fileprivate extension Array where Element == PackageDescription.PackageDump.Linu
 }
 /// The package description of the SwiftPM project
 public struct PackageDescription {
+    /// Package Description Errors
     public enum Error: Swift.Error {
         case missingSwift(String)
         case missingPackageFolder(String)
@@ -73,8 +75,9 @@ public struct PackageDescription {
         case minimumSwiftNotMet(current: String, required: String)
         case dependencyMissingLocalPath(name: String, url: String, version: String)
     }
-    
+    /// Internal Package Descriptions
     private struct Description: Codable {
+        /// Package Target
         public struct Target: Codable {
             let c99name: String
             let module_type: String
@@ -83,9 +86,11 @@ public struct PackageDescription {
             let sources: [String]
             let type: String
         }
-        
+        /// Name of package
         let name: String
+        /// Path of package
         let path: String
+        /// List of targets
         let targets: [Target]
     }
     
@@ -116,16 +121,16 @@ public struct PackageDescription {
         }
     }
     
-    
+    /// Package Target
     public struct Target {
-        let c99name: String
-        let module_type: String
-        let name: String
-        let path: String
-        let pkgConfig: String?
-        let providers: Dictionary<String, Array<String>>
-        let sources: [String]
-        let type: String
+        public let c99name: String
+        public let module_type: String
+        public let name: String
+        public let path: String
+        public let pkgConfig: String?
+        public let providers: Dictionary<String, Array<String>>
+        public let sources: [String]
+        public let type: String
     }
     
     fileprivate struct _Dependency: Codable {
@@ -135,19 +140,19 @@ public struct PackageDescription {
         let path: String
         let dependencies: [_Dependency]
     }
-    
+    /// Package Dependency
     public struct Dependency {
         private let p: Any?
         fileprivate var parent: Dependency? { return self.p as? Dependency }
-        let name: String
-        let url: String
-        let version: String
-        let path: String
-        let description: PackageDescription?
+        public let name: String
+        public let url: String
+        public let version: String
+        public let path: String
+        public let description: PackageDescription?
         public private(set) var dependencies: [Dependency]
         
         fileprivate init(_ dependency: _Dependency,
-                         swiftPath: String,
+                         swiftCLI: CLICapture,
                          havingParent parent: Dependency? = nil) throws {
             guard !dependency.path.isEmpty else {
                 throw Error.dependencyMissingLocalPath(name: dependency.name,
@@ -159,7 +164,8 @@ public struct PackageDescription {
             self.url = dependency.url
             self.version = dependency.version
             self.path = dependency.path
-            self.description = try PackageDescription(swiftPath: swiftPath,
+            print("Loading Dependency['\(dependency.name)'] description")
+            self.description = try PackageDescription.init(swiftCLI: swiftCLI,
                                                       packagePath: self.path,
                                                       loadDependencies: false)
             
@@ -168,7 +174,7 @@ public struct PackageDescription {
             for dep in dependency.dependencies {
                 // Stop recursive dependancies
                 if !self.hasExistingDependency(dep) {
-                    self.dependencies.append(try Dependency(dep, swiftPath: swiftPath, havingParent: self))
+                    self.dependencies.append(try Dependency(dep, swiftCLI: swiftCLI, havingParent: self))
                 }
             }
         }
@@ -195,15 +201,20 @@ public struct PackageDescription {
             
         }
     }
-    
-    let name: String
-    let path: String
-    let pkgConfig: String?
-    let providers: Dictionary<String, Array<String>>
-    let targets: [Target]
-    let dependencies: [Dependency]
+    ///Name of the Package
+    public let name: String
+    /// Path of the package
+    public let path: String
+    /// Package Config
+    public let pkgConfig: String?
+    /// Dependend Package Providers / Packages
+    public let providers: Dictionary<String, Array<String>>
+    /// Package Targets
+    public let targets: [Target]
+    /// Package Dependencies
+    public let dependencies: [Dependency]?
     /// Gets all providers/packages in this project
-    var uniqueProviders: Dictionary<String, Array<String>> {
+    public var uniqueProviders: Dictionary<String, Array<String>> {
         func combind(_ src: Array<String>, _ dest: Array<String>) -> Array<String> {
             var rtn = src
             for val in dest {
@@ -225,7 +236,7 @@ public struct PackageDescription {
             }
         }
         
-        for dependancy in self.dependencies {
+        for dependancy in (self.dependencies ?? []) {
             guard let description = dependancy.description else { continue }
             for (manager, packages) in description.uniqueProviders {
                 guard let ary = rtn[manager] else {
@@ -239,51 +250,42 @@ public struct PackageDescription {
         return rtn
     }
     
-    public init(swiftPath: String = DSwiftSettings.defaultSwiftPath,
+    /// Create new Package Description
+    /// - Parameters:
+    ///   - swiftCLI: CLI Capture object used to execute Swift commands
+    ///   - packagePath: Path the the swift project (Folder only)
+    ///   - loadDependencies: Indicator if should load list of package dependencies
+    public init(swiftCLI: CLICapture,
                 packagePath: String = FileManager.default.currentDirectoryPath,
                 loadDependencies: Bool) throws {
-        if !FileManager.default.fileExists(atPath: swiftPath) { throw Error.missingSwift(swiftPath) }
-        if !FileManager.default.fileExists(atPath: packagePath) { throw Error.missingPackageFolder(packagePath) }
+        
+        if !FileManager.default.fileExists(atPath: packagePath) {
+            throw Error.missingPackageFolder(packagePath)
+        }
         
         let packageFileURL = URL(fileURLWithPath: packagePath).appendingPathComponent("Package.swift")
         if !FileManager.default.fileExists(atPath: packagePath) {
             throw Error.missingPackageFile(packageFileURL.path)
         }
         
-        let task = newProcess()
-        
-        task.executable = URL(fileURLWithPath: swiftPath)
-        task.currentDirectory = URL(fileURLWithPath: packagePath)
-        task.arguments = ["package", "describe", "--type", "json"]
-        
-        #if os(macOS)
-         // Send errors to null
-        task.standardInput = FileHandle.nullDevice
-        #endif
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
-        
-        try task.execute()
-        task.waitUntilExit()
-        
-        var data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let responseStr = String(data: data, encoding: .utf8)
-        
-        if task.terminationStatus != 0 {
+        let pkgDescribeResponse = try swiftCLI.waitAndCaptureStringResponse(arguments: ["package", "describe", "--type", "json"],
+                                                                 currentDirectory: URL(fileURLWithPath: packagePath),
+                                                                            outputOptions: .captureAll)
+        if pkgDescribeResponse.exitStatusCode != 0 {
             
-            if let describeStr = responseStr,
+            if let describeStr = pkgDescribeResponse.output,
                 let m = try? describeStr.firstMatch(pattern: "requires a minimum Swift tools version of (?<minVer>(\\d+(\\.\\d+(\\.\\d+)?)?)) \\(currently (?<currentVer>\\d+(\\.\\d+(\\.\\d+)?)?)\\)"),
                 let match = m,
                 let minVer = match.value(withName: "minVer"),
                 let currentVer = match.value(withName: "currentVer") {
                 throw Error.minimumSwiftNotMet(current: currentVer, required: minVer)
             }
-            throw Error.unableToLoadDescription(packagePath, responseStr)
+            throw Error.unableToLoadDescription(packagePath, pkgDescribeResponse.output)
         }
         
+        var data: Data =  pkgDescribeResponse.out?.data(using: .utf8) ?? Data()
         // Convert output to utf8 string
-        if let describeStr = responseStr {
+        if let describeStr = pkgDescribeResponse.output {
             
             // Find the start of the json string {
             if let r = describeStr.range(of: "{") {
@@ -300,34 +302,24 @@ public struct PackageDescription {
         do {
             desc = try decoder.decode(Description.self, from: data)
         } catch {
-            throw Error.unableToTransformDescriptionIntoObjects(error, data, String(data: data, encoding: .utf8))
+            throw Error.unableToTransformDescriptionIntoObjects(error,
+                                                                data,
+                                                                String(data: data,
+                                                                       encoding: .utf8))
         }
         
-        let dumpTask = newProcess()
+        let pkgDumpResponse = try swiftCLI.waitAndCaptureStringResponse(arguments: ["package", "dump-package"],
+                                                                        currentDirectory: URL(fileURLWithPath: packagePath),
+                                                                      outputOptions: .captureAll)
         
-        dumpTask.executable = URL(fileURLWithPath: swiftPath)
-        dumpTask.currentDirectory = URL(fileURLWithPath: packagePath)
-        dumpTask.arguments = ["package", "dump-package"]
         
-        #if os(macOS)
-        // Send errors to null
-        dumpTask.standardInput = FileHandle.nullDevice
-        #endif
-        let dumpPipe = Pipe()
-        let dumpErrPipe = Pipe()
-        dumpTask.standardOutput = dumpPipe
-        dumpTask.standardError = dumpErrPipe //FileHandle.nullDevice //dumpPipe
-        try dumpTask.execute()
-        dumpTask.waitUntilExit()
-        
-        if dumpTask.terminationStatus != 0 {
+        if pkgDumpResponse.exitStatusCode != 0 {
             throw Error.unableToLoadDescription(packagePath,
-                                                String(data: dumpPipe.fileHandleForReading.readDataToEndOfFile(),
-                                                       encoding: .utf8))
+                                                pkgDumpResponse.output)
         }
         
-        data = dumpPipe.fileHandleForReading.readDataToEndOfFile()
-        if var dtaStr = String(data: data, encoding: .utf8) {
+        data = pkgDumpResponse.out?.data(using: .utf8) ?? Data()
+        if var dtaStr = pkgDumpResponse.output {
             if dtaStr.hasPrefix("unable to restore state from") {
                 dtaStr = dtaStr.split(separator: "\n").dropFirst().map(String.init).joined(separator: "\n")
                 if let newDta = dtaStr.data(using: .utf8) {
@@ -335,11 +327,15 @@ public struct PackageDescription {
                 }
             }
         }
+        
         let dump: PackageDump!
         do {
             dump = try decoder.decode(PackageDump.self, from: data)
         } catch {
-            throw Error.unableToTransformPackageDumpIntoObjects(error, data, String(data: data, encoding: .utf8))
+            throw Error.unableToTransformPackageDumpIntoObjects(error,
+                                                                data,
+                                                                String(data: data,
+                                                                       encoding: .utf8))
         }
         
         self.name = desc.name
@@ -367,35 +363,19 @@ public struct PackageDescription {
         self.targets = tgts
         
         guard loadDependencies else {
-            self.dependencies = []
+            self.dependencies = nil
             return
         }
         
-        let depTask = newProcess()
+        let depTaskResponse = try swiftCLI.waitAndCaptureStringResponse(arguments: ["package", "show-dependencies", "--format", "json"],
+                                                                        currentDirectory: URL(fileURLWithPath: packagePath),
+                                                                      outputOptions: .captureAll)
         
-        depTask.executable = URL(fileURLWithPath: swiftPath)
-        depTask.currentDirectory = URL(fileURLWithPath: packagePath)
-        depTask.arguments = ["package", "show-dependencies", "--format", "json"]
         
-        #if os(macOS)
-        // Send errors to null
-        depTask.standardInput = FileHandle.nullDevice
-        #endif
-        let depPipe = Pipe()
-        depTask.standardOutput = depPipe
-        depTask.standardError = depPipe
         
-        try depTask.execute()
-        depTask.waitUntilExit()
+        data = depTaskResponse.out?.data(using: .utf8) ?? Data()
         
-        if depTask.terminationStatus != 0 {
-            throw Error.unableToLoadDependencies(packagePath,
-                                                 String(data: depPipe.fileHandleForReading.readDataToEndOfFile(),
-                                                       encoding: .utf8))
-        }
-        
-        data = depPipe.fileHandleForReading.readDataToEndOfFile()
-        if var dtaStr = String(data: data, encoding: .utf8) {
+        if var dtaStr = depTaskResponse.output {
             if dtaStr.hasPrefix("unable to restore state from") {
                 dtaStr = dtaStr.split(separator: "\n").dropFirst().map(String.init).joined(separator: "\n")
                 if let newDta = dtaStr.data(using: .utf8) {
@@ -410,7 +390,29 @@ public struct PackageDescription {
             throw Error.unableToTransformDependenciesIntoObjects(error, data, String(data: data, encoding: .utf8))
         }
         
-        self.dependencies = try dep.dependencies.map({ return try Dependency($0, swiftPath: swiftPath) })
+        self.dependencies = try dep.dependencies.map {
+            return try Dependency($0, swiftCLI: swiftCLI)
+        }
+    }
+    /// Create new Package Description
+    /// - Parameters:
+    ///   - swiftPath: Path to the swift executable, (Default: default location of swift)
+    ///   - packagePath: Path the the swift project (Folder only)
+    ///   - loadDependencies: Indicator if should load list of package dependencies
+    public init(swiftPath: String = DSwiftSettings.defaultSwiftPath,
+                packagePath: String = FileManager.default.currentDirectoryPath,
+                loadDependencies: Bool) throws {
+        if !FileManager.default.fileExists(atPath: swiftPath) {
+            throw Error.missingSwift(swiftPath)
+        }
+        
+        let swiftCLI = CLICapture.init(outputLock: Console.sharedOutputLock,
+                                       createProcess: SwiftCLIWrapper.newSwiftProcessMethod(swiftURL: URL(fileURLWithPath: swiftPath)))
+        
+        try self.init(swiftCLI: swiftCLI,
+                      packagePath: packagePath,
+                      loadDependencies: loadDependencies)
+        
     }
 }
 
