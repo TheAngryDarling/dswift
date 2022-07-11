@@ -9,6 +9,7 @@ import Foundation
 import VersionKit
 import XcodeProj
 import CLICapture
+import PathHelpers
 
 
 public class StaticFileSourceCodeGenerator: DynamicGenerator {
@@ -72,7 +73,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             case `public`
             case `internal`
         }
-        let file: String
+        let file: FSPath
         let modifier: Modifier
         let name: String
         let namespace: String?
@@ -80,7 +81,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         
     }
     
-    public var supportedExtensions: [String] { return ["dswift-static"] }
+    public var supportedExtensions: [FSExtension] { return [.init("dswift-static")] }
     
     public let dswiftInfo: DSwiftInfo
     public let console: Console
@@ -93,35 +94,39 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         self.console = console
     }
     
-    func isSupportedFile(_ file: String) -> Bool {
-        return self.supportedExtensions.contains(file.pathExtension.lowercased())
+    func isSupportedFile(_ file: FSPath) -> Bool {
+        guard let ext = file.extension else { return false}
+        return self.supportedExtensions.contains(ext)
     }
     
-    public func languageForXcode(file: String) -> String? {
+    public func languageForXcode(file: XcodeFileSystemURLResource) -> String? {
         return nil
     }
     
-    public func explicitFileTypeForXcode(file: String) -> XcodeFileType? {
+    public func explicitFileTypeForXcode(file: XcodeFileSystemURLResource) -> XcodeFileType? {
         return XcodeFileType.Text.json
     }
     
-    public func requiresSourceCodeGeneration(for source: URL) throws -> Bool {
-        let destination = try generatedFilePath(for: source)
+    public func requiresSourceCodeGeneration(for source: FSPath,
+                                             using fileManager: FileManager) throws -> Bool {
+        let destination = try generatedFilePath(for: source, using: fileManager)
         
         let staticFile: StaticFile = try JSONDecoder().decode(StaticFile.self,
-                                                           from: try Data(contentsOf: source))
-        let staticFilePath = staticFile.file.fullPath(from: source.deletingLastPathComponent().path)
-        let staticFileURL = URL(fileURLWithPath: staticFilePath)
+                                                              from: try Data(contentsOf: source,
+                                                                             using: fileManager))
+        
+        let staticFilePath = staticFile.file.fullPath(referencing: source.deletingLastComponent())
         
         // If the generated file does not exist, then return true
-        guard FileManager.default.fileExists(atPath: destination.path) else {
-            self.console.printVerbose("Generated file '\(destination.path)' does not exists", object: self)
+        guard destination.exists(using: fileManager) else {
+            self.console.printVerbose("Generated file '\(destination)' does not exists",
+                                      object: self)
             return true
         }
         // Get the modification dates otherwise return true to rebuild
-        guard let srcMod = source.fsSafePath?.modificationDate(),
-              let staticSrcMod = staticFileURL.fsSafePath?.modificationDate(),
-              let desMod = destination.fsSafePath?.modificationDate() else {
+        guard let srcMod = source.safely.modificationDate(using: fileManager),
+              let staticSrcMod = staticFilePath.safely.modificationDate(using: fileManager),
+              let desMod = destination.safely.modificationDate(using: fileManager) else {
                   self.console.printVerbose("Wasn't able to get all modification dates", object: self)
             return true
         }
@@ -129,15 +134,16 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         // Source or static file is newer than destination, meaning we must rebuild
         guard srcMod <= desMod && staticSrcMod <= desMod else {
             if srcMod > desMod {
-                self.console.printVerbose("'\(source.path)' is newer", object: self)
+                self.console.printVerbose("'\(source)' is newer", object: self)
             } else  if staticSrcMod > desMod {
-                self.console.printVerbose("'\(staticFileURL.path)' is newer", object: self)
+                self.console.printVerbose("'\(staticFilePath)' is newer", object: self)
             }
             return true
         }
         
         guard !(try self.checkForFailedGenerationCommentInDestination(for: source,
-                                                                      destination: destination)) else {
+                                                                      destination: destination,
+                                                                         using: fileManager)) else {
             return true
         }
         
@@ -148,16 +154,18 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
     public func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource,
                                    inGroup group: XcodeGroup,
                                    havingTarget target: XcodeTarget,
-                                   includeGeneratedFilesInXcodeProject: Bool) throws -> Bool {
+                                   includeGeneratedFilesInXcodeProject: Bool,
+                                   using fileManager: FileManager) throws -> Bool {
         var rtn: Bool = false
         self.console.printVerbose("Calling \(type(of: self)).updateXcodeProject",
                                 object: self)
-        let staticFilePath: String? = {
+        let staticFilePath: FSPath? = {
             do {
-                let source = URL(fileURLWithPath: xcodeFile.path)
+                let source = FSPath(xcodeFile.path)
                 let staticFile: StaticFile = try JSONDecoder().decode(StaticFile.self,
-                                                                      from: try Data(contentsOf: source))
-                return staticFile.file.fullPath(from: xcodeFile.path.deletingLastPathComponent)
+                                                                      from: try Data(contentsOf: source,
+                                                                                     using: fileManager))
+                return staticFile.file.fullPath(referencing: source.deletingLastComponent())
             } catch {
                 return nil
             }
@@ -170,8 +178,8 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
                                           savePBXFile: false) as! XcodeFile
             
             //f.languageSpecificationIdentifier = "xcode.lang.swift"
-            f.languageSpecificationIdentifier = self.languageForXcode(file: xcodeFile.path)
-            f.explicitFileType = self.explicitFileTypeForXcode(file: xcodeFile.path)
+            f.languageSpecificationIdentifier = self.languageForXcode(file: xcodeFile)
+            f.explicitFileType = self.explicitFileTypeForXcode(file: xcodeFile)
             target.sourcesBuildPhase().createBuildFile(for: f)
             //print("Adding dswift file '\(child.path)'")
             rtn = true
@@ -180,22 +188,21 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             self.console.printVerbose("Found static file '\(sFile)' for adding to project",
                                     object: self)
             
-            if !FileManager.default.fileExists(atPath: sFile) {
+            if !sFile.exists(using: fileManager) {
                 self.console.printError("WARNING: Static file '\(sFile)' does not exist.",
                                       object: self)
             }
     
-            let rootGroupPath = group.mainGroup.fullPath
-            if let r = sFile.range(of: rootGroupPath),
-                r.lowerBound == sFile.startIndex {
-                var staticFileRelativePath = String(sFile[r.upperBound...])
+            let rootGroupPath = FSPath(group.mainGroup.fullPath)
+            
+            if var staticFileRelativePath = sFile.relative(to: rootGroupPath)?.string {
                 if !staticFileRelativePath.hasPrefix("/") {
                     staticFileRelativePath = "/" + staticFileRelativePath
                 }
                 let staticFileParentPath = staticFileRelativePath.deletingLastPathComponent
-                let staticFileParentGroup: XcodeGroup = try group.mainGroup.subGroup(atPath: staticFileParentPath,
-                                                                                     options: .createOnly)!
-                if !staticFileParentGroup.contains(where: { $0.name == sFile.lastPathComponent }) {
+                let staticFileParentGroup = try group.mainGroup.subGroup(atPath: staticFileParentPath,
+                                                                         options: .createOnly)!
+                if !staticFileParentGroup.contains(where: { $0.name == sFile.lastComponent }) {
                     self.console.printVerbose("Adding '\(staticFileRelativePath)' to project",
                                             object: self)
                     try staticFileParentGroup.addExisting(XcodeFileSystemURLResource(file: sFile),
@@ -211,7 +218,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         } else {
             self.console.printError("ERROR: Could not load path for static file in '\(xcodeFile.path)'", object: self)
         }
-        let swiftName = try self.generatedFilePath(for: xcodeFile.path).lastPathComponent
+        let swiftName = try self.generatedFilePath(for: xcodeFile).lastComponent
         if let f = group.file(atPath: swiftName) {
             
             //let source = try String(contentsOf: URL(fileURLWithPath: f.fullPath), encoding: f.encoding ?? .utf8)
@@ -242,11 +249,11 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         return rtn
     }
     
-    public func generateSource(sourcePath: String,
+    public func generateSource(sourcePath: FSPath,
                                staticFile: StaticFile,
-                               fileContent data: Data) throws -> (source: String, encoding: String.Encoding) {
+                                     fileContent data: Data) throws -> (source: String, encoding: String.Encoding) {
         
-        var sourceCode: String = "//  This file was dynamically generated from '\(sourcePath.lastPathComponent)' and '\(staticFile.file)' by \(self.dswiftInfo.moduleName).  Please do not modify directly.\n"
+        var sourceCode: String = "//  This file was dynamically generated from '\(sourcePath.lastComponent)' and '\(staticFile.file)' by \(self.dswiftInfo.moduleName).  Please do not modify directly.\n"
         
         sourceCode += "//  \(self.dswiftInfo.moduleName) can be found at \(self.dswiftInfo.url).\n\n"
         
@@ -310,13 +317,10 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
             sourceCode += "\n\n}"
         }
         
-        
-        
-        
         return (source: sourceCode, encoding: encoding)
     }
     
-    public func generateSource(sourcePath: String,
+    public func generateSource(sourcePath: FSPath,
                                staticFile: Data,
                                fileContent data: Data) throws -> (source: String, encoding: String.Encoding) {
         
@@ -329,7 +333,7 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         
     }
     
-    public func generateSource(sourcePath: String,
+    public func generateSource(sourcePath: FSPath,
                                staticFile: String,
                                staticFileEncoding: String.Encoding = .utf8,
                                fileContent data: Data) throws -> (source: String, encoding: String.Encoding) {
@@ -343,14 +347,14 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
                                        fileContent: data)
     }
     
-    public func generateSource(sourcePath: String,
-                               staticFile: StaticFile) throws -> (source: String, encoding: String.Encoding) {
+    public func generateSource(sourcePath: FSPath,
+                               staticFile: StaticFile,
+                               using fileManager: FileManager) throws -> (source: String, encoding: String.Encoding) {
         
         
-        let workingFile: String = staticFile.file.fullPath(from: sourcePath.deletingLastPathComponent)
+        let workingFilePath = staticFile.file.fullPath(referencing: sourcePath.deletingLastComponent())
         
-        let workingFileURL = URL(fileURLWithPath: workingFile)
-        let data = try Data(contentsOf: workingFileURL)
+        let data = try Data(contentsOf: workingFilePath, using: fileManager)
         
         return try self.generateSource(sourcePath: sourcePath,
                                        staticFile: staticFile,
@@ -360,44 +364,49 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
     
                                
     
-    public func generateSource(from sourcePath: String,
-                               havingEncoding encoding: String.Encoding? = nil) throws -> (source: String, encoding: String.Encoding) {
+    public func generateSource(from sourcePath: FSPath,
+                               havingEncoding encoding: String.Encoding? = nil,
+                               using fileManager: FileManager) throws -> (source: String, encoding: String.Encoding) {
         
-        guard FileManager.default.fileExists(atPath: sourcePath) else { throw Errors.missingSource(atPath: sourcePath) }
+        guard sourcePath.exists(using: fileManager) else {
+            throw Errors.missingSource(atPath: sourcePath.string)
+        }
         
         let srcFile: StaticFile = try JSONDecoder().decode(StaticFile.self,
-                                                           from: try Data(contentsOf: URL(fileURLWithPath: sourcePath)))
+                                                           from: try Data(contentsOf: sourcePath.url))
         
         return try self.generateSource(sourcePath: sourcePath,
-                                       staticFile: srcFile)
+                                       staticFile: srcFile,
+                                       using: fileManager)
     }
     
-    
-    
-    public func generateSource(from sourcePath: String,
-                               havingEncoding encoding: String.Encoding? = nil,
-                               to destinationPath: String,
-                               lockGenFiles: Bool) throws {
+    public func generateSource(from sourcePath: FSPath,
+                               havingEncoding encoding: String.Encoding?,
+                               to destinationPath: FSPath,
+                               lockGenFiles: Bool,
+                               using fileManager: FileManager) throws {
         self.console.printVerbose("Generating source for '\(sourcePath)'",
                                 object: self)
         let s = try generateSource(from: sourcePath,
-                                   havingEncoding: encoding)
-        if FileManager.default.fileExists(atPath: destinationPath) {
+                                   havingEncoding: encoding,
+                                   using: fileManager)
+        
+        if destinationPath.exists(using: fileManager) {
             do {
-                try FileManager.default.removeItem(atPath: destinationPath)
+                try destinationPath.remove(using: fileManager)
             } catch {
                 self.console.printVerbose("Unable to remove old version of '\(destinationPath)'",
                                         object: self)
             }
         }
-        try s.source.write(toFile: destinationPath,
+        try s.source.write(toFile: destinationPath.string,
                            atomically: false,
                            encoding: s.encoding)
         if lockGenFiles {
             do {
                 //marking generated file as read-only
-                try FileManager.default.setPosixPermissions(4444,
-                                                            ofItemAtPath: destinationPath)
+                try destinationPath.setPosixPermissions(4444,
+                                                        using: fileManager)
             } catch {
                 self.console.printVerbose("Unable to mark'\(destinationPath)' as readonly",
                                         object: self)
@@ -405,21 +414,16 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
         }
     }
     
-    public func generateSource(from source: URL,
-                               havingEncoding encoding: String.Encoding? = nil,
-                               to destination: URL,
-                               lockGenFiles: Bool) throws {
-        guard source.isFileURL else { throw Errors.mustBeFileURL(source) }
-        guard destination.isFileURL else { throw Errors.mustBeFileURL(destination) }
-        try generateSource(from: source.path,
-                           havingEncoding: encoding,
-                           to: destination.path,
-                           lockGenFiles: lockGenFiles)
-    }
-    
-    public func generateSource(from source: URL) throws -> (String, String.Encoding) {
-        guard source.isFileURL else { throw Errors.mustBeFileURL(source) }
-        return try self.generateSource(from: source.path)
+    public func generateSource(from sourcePath: FSPath,
+                               to destinationPath: FSPath,
+                               project: SwiftProject,
+                               lockGenFiles: Bool,
+                               using fileManager: FileManager) throws {
+        try self.generateSource(from: sourcePath,
+                                havingEncoding: nil,
+                                to: destinationPath,
+                                lockGenFiles: lockGenFiles,
+                                using: fileManager)
     }
 }
 
