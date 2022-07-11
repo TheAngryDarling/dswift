@@ -16,6 +16,7 @@ import XcodeProj
 import RegEx
 import CLICapture
 import SynchronizeObjects
+import PathHelpers
 
 
 public class DynamicSourceCodeGenerator: DynamicGenerator {
@@ -23,28 +24,16 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     public class TagReplacementDetails {
         
         public class IncludeReplacement {
-            private var raw: [String: Any] = [:]
-            private let lock = NSLock()
+            /// The raw synchronized storage
+            private let raw: SyncLockObj<[String: Any]> = .init(value: [:])
             
             public subscript(_ key: String) -> Any? {
-                get {
-                    self.lock.lock()
-                    defer { self.lock.unlock() }
-                    return self.raw[key]
-                }
-                set {
-                    self.lock.lock()
-                    defer { self.lock.unlock() }
-                    self.raw[key] = newValue
-                }
+                get { return self.raw[key] }
+                set { self.raw[key] = newValue }
             }
             
             public subscript<T>(_ key: String, ofType type: T.Type) -> T? {
-                get {
-                    self.lock.lock()
-                    defer { self.lock.unlock() }
-                    return self.raw[key] as? T
-                }
+                get { return self.raw[key] as? T }
             }
             
             public var processedIncludeFiles: [String] {
@@ -52,28 +41,17 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
                 set { self["included.files.processed"] = newValue }
             }
         }
-        private var raw: [String: Any] = [:]
-        private let lock = NSLock()
+        
+        /// The raw synchronized storage
+        private let raw: SyncLockObj<[String: Any]> = .init(value: [:])
         
         public subscript(_ key: String) -> Any? {
-            get {
-                self.lock.lock()
-                defer { self.lock.unlock() }
-                return self.raw[key]
-            }
-            set {
-                self.lock.lock()
-                defer { self.lock.unlock() }
-                self.raw[key] = newValue
-            }
+            get { return self.raw[key] }
+            set { self.raw[key] = newValue }
         }
         
         public subscript<T>(_ key: String, ofType type: T.Type) -> T? {
-            get {
-                self.lock.lock()
-                defer { self.lock.unlock() }
-                return self.raw[key] as? T
-            }
+            get { return self.raw[key] as? T }
         }
         
         public var includeReplacement: IncludeReplacement {
@@ -103,164 +81,182 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
             }
         }
         
-        public typealias DSWIFT_TOOLS_VERSION_PARSER = (_ path: String,
+        public typealias DSWIFT_TOOLS_VERSION_PARSER = (_ path: FSPath,
                                                         _ source: String,
                                                         _ console: Console) throws -> Version.SingleVersion?
         
-        public typealias DSWIFT_TAGS_PARSER = (_ path: String,
+        public typealias DSWIFT_TAGS_PARSER = (_ path: FSPath,
                                                _ source: String,
                                                _ project: SwiftProject,
-                                               _ console:  Console) throws -> [DSwiftTag]
+                                               _ console:  Console,
+                                               _ fileManager: FileManager) throws -> [DSwiftTag]
         
-        private var sourceContent: [String: (content: String, encoding: String.Encoding)]
-        private let sourceContentLock = NSLock()
+        private let sourceContent: SyncLockObj<[String: (content: String, encoding: String.Encoding)]>
         
-        
-        
-        private var sourceVersion: [String: Version.SingleVersion?]
-        private let sourceVersionLock = NSLock()
+        private let sourceVersion: SyncLockObj<[String: Version.SingleVersion?]>
         private let parseDSwiftToolsVersion: DSWIFT_TOOLS_VERSION_PARSER
         
-        private var dswiftTags: [String: [DSwiftTag]]
-        private let dswiftTagsLock = NSLock()
+        private let dswiftTags: SyncLockObj<[String: [DSwiftTag]]>
         private let parseDSwiftTags: DSWIFT_TAGS_PARSER
         
-        //private let project: SwiftProject
         
-        
-        
-        public init(//project: SwiftProject,
-                    sourceContent: [String: (content: String, encoding: String.Encoding)] = [:],
+        public init(sourceContent: [String: (content: String, encoding: String.Encoding)] = [:],
                     sourceVersion: [String: Version.SingleVersion?] = [:],
                     parseDSwiftToolsVersion: @escaping DSWIFT_TOOLS_VERSION_PARSER,
                     dswiftTags: [String: [DSwiftTag]] = [:],
                     parseDSwiftTags: @escaping DSWIFT_TAGS_PARSER) {
             //self.project = project
-            self.sourceContent = sourceContent
-            self.sourceVersion = sourceVersion
+            self.sourceContent = .init(value: sourceContent)
+            self.sourceVersion = .init(value: sourceVersion)
             self.parseDSwiftToolsVersion = parseDSwiftToolsVersion
-            self.dswiftTags = dswiftTags
+            self.dswiftTags = .init(value: dswiftTags)
             self.parseDSwiftTags = parseDSwiftTags
         }
         
-        public func getSourceContent(for path: String,
+        public func getSourceContent(for path: FSPath,
                                      encoding: String.Encoding?,// = nil,
-                                     console: Console = .null) throws -> (content: String, encoding: String.Encoding) {
-            self.sourceContentLock.lock()
-            defer { self.sourceContentLock.unlock() }
-            if let rtn = self.sourceContent[path] { return rtn }
-            
-            if let enc = encoding /*?? self.project.file(atPath: path)?.encoding*/ {
-                console.printVerbose("Reading file '\(path.lastPathComponent)' with encoding \(enc)", object: self)
-                let includeSrc = try String(contentsOfFile: path, encoding: enc)
-                self.sourceContent[path] =  (content: includeSrc, encoding: enc)
-                return (content: includeSrc, encoding: enc)
-            } else {
-                console.printVerbose("Reading file '\(path.lastPathComponent)'", object: self)
-                var enc: String.Encoding = .utf8
-                let includeSrc = try String(contentsOfFile: path, foundEncoding: &enc)
+                                     console: Console = .null,
+                                     using fileManager: FileManager) throws -> (content: String, encoding: String.Encoding) {
+            return try self.sourceContent.lockingForWithValue { ptr in
+                if let rtn = ptr.pointee[path.string] { return rtn }
                 
-                self.sourceContent[path] =  (content: includeSrc, encoding: enc)
-                return (content: includeSrc, encoding: enc)
+                if let enc = encoding {
+                    console.printVerbose("Reading file '\(path.lastComponent)' with encoding \(enc)", object: self)
+                    let includeSrc = try String(contentsOf: path, encoding: enc, using: fileManager)
+                    ptr.pointee[path.string] =  (content: includeSrc, encoding: enc)
+                    return (content: includeSrc, encoding: enc)
+                } else {
+                    console.printVerbose("Reading file '\(path.lastComponent)'", object: self)
+                    var enc: String.Encoding = .utf8
+                    let includeSrc = try String(contentsOf: path, foundEncoding: &enc, using: fileManager)
+                    
+                    ptr.pointee[path.string] =  (content: includeSrc, encoding: enc)
+                    return (content: includeSrc, encoding: enc)
+                }
             }
+            
         }
         
-        public func getSourceContent(for path: String,
+        public func getSourceContent(for path: FSPath,
                                      project: SwiftProject,
-                                     console: Console = .null) throws -> (content: String, encoding: String.Encoding) {
+                                     console: Console = .null,
+                                     using fileManager: FileManager) throws -> (content: String, encoding: String.Encoding) {
             return try self.getSourceContent(for: path,
-                                                encoding: project.xcodeFile(atPath: path)?.encoding,
-                                                console: console)
+                                             encoding: project.xcodeFile(at: path)?.encoding,
+                                             console: console,
+                                             using: fileManager)
         }
         
         
         
-        public func getSourceDSwiftVersion(for path: String,
+        public func getSourceDSwiftVersion(for path: FSPath,
                                            source: String,
                                            console: Console = .null) throws -> Version.SingleVersion? {
             
-            self.sourceVersionLock.lock()
-            defer { self.sourceVersionLock.unlock() }
-            
-            if let ver = self.sourceVersion[path] { return ver }
-            
-            let ver = try self.parseDSwiftToolsVersion(path, source, console)
-            
-            self.sourceVersion[path] = ver
-            
-            return ver
+            //self.sourceVersionLock.lock()
+            //defer { self.sourceVersionLock.unlock() }
+            return try self.sourceVersion.lockingForWithValue { ptr -> Version.SingleVersion? in
+                
+                if let ver = ptr.pointee[path.string] { return ver }
+                
+                let ver = try self.parseDSwiftToolsVersion(path, source, console)
+                
+                ptr.pointee[path.string] = ver
+                
+                return ver
+            }
             
         }
         
-        public func getSourceDSwiftVersion(for path: String,
+        public func getSourceDSwiftVersion(for path: FSPath,
                                            encoding: String.Encoding?,// = nil,
-                                           console: Console = .null) throws -> Version.SingleVersion? {
+                                           console: Console = .null,
+                                                 using fileManager: FileManager) throws -> Version.SingleVersion? {
             
-            self.sourceVersionLock.lock()
-            defer { self.sourceVersionLock.unlock() }
+            //self.sourceVersionLock.lock()
+            //defer { self.sourceVersionLock.unlock() }
             
-            if let ver = self.sourceVersion[path] { return ver }
-            
-            let source = (try self.getSourceContent(for: path,
-                                                    encoding: encoding,
-                                                    console: console)).content
-            
-            let ver = try self.parseDSwiftToolsVersion(path, source, console)
-            
-            self.sourceVersion[path] = ver
-            
-            return ver
+            return try self.sourceVersion.lockingForWithValue { ptr -> Version.SingleVersion? in
+                if let ver = ptr.pointee[path.string] { return ver }
+                
+                let source = (try self.getSourceContent(for: path,
+                                                        encoding: encoding,
+                                                        console: console,
+                                                        using: fileManager)).content
+                
+                let ver = try self.parseDSwiftToolsVersion(path, source, console)
+                
+                ptr.pointee[path.string] = ver
+                
+                return ver
+            }
             
             
         }
         
-        public func getSourceDSwiftVersion(for path: String,
+        public func getSourceDSwiftVersion(for path: FSPath,
                                            project: SwiftProject,
-                                           console: Console = .null) throws -> Version.SingleVersion? {
+                                           console: Console = .null,
+                                           using fileManager: FileManager) throws -> Version.SingleVersion? {
             return try self.getSourceDSwiftVersion(for: path,
-                                                   encoding: project.xcodeFile(atPath: path)?.encoding,
-                                                   console: console)
+                                                   encoding: project.xcodeFile(at: path)?.encoding,
+                                                   console: console,
+                                                      using: fileManager)
         }
-        public func getDSwiftTags(in path: String,
+        public func getDSwiftTags(in path: FSPath,
                                   source: String,
                                   project: SwiftProject,
-                                  console: Console = .null) throws -> [DSwiftTag] {
-            self.dswiftTagsLock.lock()
-            defer { self.dswiftTagsLock.unlock() }
-            if let rtn = self.dswiftTags[path] { return rtn }
-            
-            let rtn = try self.parseDSwiftTags(path, source, project, console)
-            self.dswiftTags[path] = rtn
-            return rtn
+                                  console: Console = .null,
+                                  using fileManager: FileManager) throws -> [DSwiftTag] {
+            //self.dswiftTagsLock.lock()
+            //defer { self.dswiftTagsLock.unlock() }
+            return try self.dswiftTags.lockingForWithValue { ptr -> [DSwiftTag] in
+                if let rtn = ptr.pointee[path.string] { return rtn }
+                
+                let rtn = try self.parseDSwiftTags(path,
+                                                   source,
+                                                   project,
+                                                   console,
+                                                   fileManager)
+                ptr.pointee[path.string] = rtn
+                return rtn
+            }
         }
         
-        public func getDSwiftTags(in path: String,
+        public func getDSwiftTags(in path: FSPath,
                                   encoding: String.Encoding?,// = nil,
                                   project: SwiftProject,
-                                  console: Console = .null) throws -> [DSwiftTag] {
-            self.dswiftTagsLock.lock()
-            defer { self.dswiftTagsLock.unlock() }
-            if let rtn = self.dswiftTags[path] { return rtn }
-            
-            let content = (try self.getSourceContent(for: path,
-                                                     encoding: encoding,
-                                                     console: console)).content
-            
-            let rtn = try self.parseDSwiftTags(path,
-                                               content,
-                                               project,
-                                               console)
-            self.dswiftTags[path] = rtn
-            return rtn
+                                  console: Console = .null,
+                                  using fileManager: FileManager) throws -> [DSwiftTag] {
+            //self.dswiftTagsLock.lock()
+            //defer { self.dswiftTagsLock.unlock() }
+            return try self.dswiftTags.lockingForWithValue { ptr -> [DSwiftTag] in
+                if let rtn = ptr.pointee[path.string] { return rtn }
+                
+                let content = (try self.getSourceContent(for: path,
+                                                         encoding: encoding,
+                                                         console: console,
+                                                            using: fileManager)).content
+                
+                let rtn = try self.parseDSwiftTags(path,
+                                                   content,
+                                                   project,
+                                                   console,
+                                                   fileManager)
+                ptr.pointee[path.string] = rtn
+                return rtn
+            }
         }
         
-        public func getDSwiftTags(in path: String,
+        public func getDSwiftTags(in path: FSPath,
                                   project: SwiftProject,
-                                  console: Console = .null) throws -> [DSwiftTag] {
+                                  console: Console = .null,
+                                  using fileManager: FileManager) throws -> [DSwiftTag] {
             return try self.getDSwiftTags(in: path,
-                                          encoding: project.xcodeFile(atPath: path)?.encoding,
+                                          encoding: project.xcodeFile(at: path)?.encoding,
                                           project: project,
-                                          console: console)
+                                          console: console,
+                                          using: fileManager)
         }
     }
     
@@ -370,14 +366,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     
     public static let PACKAGE_FILE_ENCODING: String.Encoding = String.Encoding.utf8
     
-    public var supportedExtensions: [String] { return ["dswift"] }
-    
-    /*#if os(Linux)
-    private static let MANGLED_INIT_PREFIX: String = "_T0"
-    #else
-    private static let MANGLED_INIT_PREFIX: String = "_$S"
-    #endif
-    private static let MANGLED_INIT_SUFFIX: String = "CACycfC"*/
+    public var supportedExtensions: [FSExtension] { return [FSExtension("dswift")] }
     
     private static let CommonLibraryName: String = "LibraryGen"
     private let commonLibraryCounter = SyncLockObj<Int>(value: 0)
@@ -385,8 +374,8 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     private static let CommonClassName: String = "ClassGEN"
     private let commonClassCounter = SyncLockObj<Int>(value: 0)
     
-    private let tempLocation: URL = {
-        return URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(String.random() + "-\(ProcessInfo.processInfo.processIdentifier)")
+    private let tempLocation: FSPath = {
+        return FSPath.tempDir.appendingComponent(String.random() + "-\(ProcessInfo.processInfo.processIdentifier)")
         
     } ()
     
@@ -404,19 +393,19 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         
         self.dswiftInfo = dswiftInfo
         self.preloadedDetails = PreloadedDetails(parseDSwiftToolsVersion: DynamicSourceCodeBuilder.parseDSwiftToolsVersion(from:source:console:),
-                                                 parseDSwiftTags: DynamicSourceCodeBuilder.parseDSwiftTags(in:source:project:console:))
+                                                 parseDSwiftTags: DynamicSourceCodeBuilder.parseDSwiftTags(in:source:project:console:using:))
         self.console = console
     }
     
     deinit {
-        try? FileManager.default.removeItem(at: tempLocation)
+        try? self.tempLocation.remove()
     }
     
-    public func languageForXcode(file: String) -> String? {
+    public func languageForXcode(file: XcodeFileSystemURLResource) -> String? {
         return "xcode.lang.swift"
     }
     
-    public func explicitFileTypeForXcode(file: String) -> XcodeFileType? {
+    public func explicitFileTypeForXcode(file: XcodeFileSystemURLResource) -> XcodeFileType? {
         return XcodeFileType.Text.plainText
     }
     
@@ -425,74 +414,75 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     }
     
     private func getNextLibraryName() -> String {
-        /*let idx: Int = commonLibraryLock.sync {
-            let rtn = commonLibraryCounter
-            commonLibraryCounter += 1
-            return rtn
-        }*/
         let idx = self.commonLibraryCounter.incrementalValue()
-        //self.console.print("Using Library Name '\(DynamicSourceCodeGenerator.CommonLibraryName)\(idx)'")
         return DynamicSourceCodeGenerator.CommonLibraryName + "\(idx)"
         
     }
     
     public func getNextClassName() -> String {
-        /*let idx: Int = commonClassLock.sync {
-            let rtn = commonClassCounter
-            commonClassCounter += 1
-            return rtn
-        }*/
         let idx = self.commonClassCounter.incrementalValue()
         return DynamicSourceCodeGenerator.CommonClassName + "\(idx)"
     }
     
-    private func createModule(sourcePath: String,
-                              project: SwiftProject) throws -> (moduleName: String, moduleLocation: URL, sourceEncoding: String.Encoding, containsDependencies: Bool) {
-        if !FileManager.default.fileExists(atPath: sourcePath) {
-            throw Errors.missingSource(atPath: sourcePath)
+    private func createModule(sourcePath: FSPath,
+                              project: SwiftProject,
+                              using fileManager: FileManager) throws -> (moduleName: String,
+                                                                         moduleLocation: FSPath,
+                                                                         sourceEncoding: String.Encoding,
+                                                                         containsDependencies: Bool) {
+        guard sourcePath.exists(using: fileManager) else {
+            throw Errors.missingSource(atPath: sourcePath.string)
         }
         
         
         let clsName: String = getNextClassName()
         
+        let tempLoc = self.tempLocation
         var moduleName: String = getNextLibraryName()
-        var projectDestination = tempLocation.appendingPathComponent(moduleName)
+        var projectDestination = tempLoc.appendingComponent(moduleName)
         
         // Keep checking to find a module name that does not exist on the file system
-        while FileManager.default.fileExists(atPath: projectDestination.path) {
+        while projectDestination.exists(using: fileManager) {
             moduleName = getNextLibraryName()
-            projectDestination = tempLocation.appendingPathComponent(moduleName)
+            projectDestination = tempLoc.appendingComponent(moduleName)
         }
     
         
         do {
-            try FileManager.default.createDirectory(at: projectDestination,
-                                                    withIntermediateDirectories: true)
+            try projectDestination.createDirectory(withIntermediateDirectories: true,
+                                                   using: fileManager)
         } catch {
-            throw Errors.couldNotCreateFolder(.project, atPath: projectDestination.path, error)
+            throw Errors.couldNotCreateFolder(.project,
+                                              atPath: projectDestination.string,
+                                              error)
         }
         
         
-        self.console.printVerbose("Created temp project folder \(projectDestination.path)", object: self)
+        self.console.printVerbose("Created temp project folder \(projectDestination.string)",
+                                  object: self)
         
         
-        let sourceFolder = projectDestination.appendingPathComponent("Sources")
+        let sourceFolder = projectDestination.appendingComponent("Sources")
         do {
-            try FileManager.default.createDirectory(at: sourceFolder,
-                                                    withIntermediateDirectories: false)
+            try sourceFolder.createDirectory(withIntermediateDirectories: true,
+                                             using: fileManager)
         } catch {
-            throw Errors.couldNotCreateFolder(.sources, atPath: sourceFolder.path, error)
+            throw Errors.couldNotCreateFolder(.sources,
+                                              atPath: sourceFolder.string,
+                                              error)
             
         }
         
         self.console.printVerbose("Created Sources folder", object: self)
         
-        let moduleSourceFolder = sourceFolder.appendingPathComponent(moduleName)
+        let moduleSourceFolder = sourceFolder.appendingComponent(moduleName)
         do {
-            try FileManager.default.createDirectory(at: moduleSourceFolder,
-                                                    withIntermediateDirectories: false)
+            try moduleSourceFolder.createDirectory(withIntermediateDirectories: true,
+                                             using: fileManager)
         } catch {
-            throw Errors.couldNotCreateFolder(.module, atPath: sourceFolder.path, error)
+            throw Errors.couldNotCreateFolder(.module,
+                                              atPath: sourceFolder.string,
+                                              error)
         }
         
         self.console.printVerbose("Created \(moduleName) folder", object: self)
@@ -509,7 +499,8 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
                                                             className: clsName,
                                                             dswiftInfo: self.dswiftInfo,
                                                             preloadedDetails: self.preloadedDetails,
-                                                            console: self.console)
+                                                            console: self.console,
+                                                            using: fileManager)
             self.console.printVerbose("Loaded source generator", object: self)
             srcBuilderSrc = try builder.generateSourceGenerator()
             srcBuilderEnc = builder.sourceEncoding
@@ -520,7 +511,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
             includeFolders = []
             includePackages = []
             containsDependencies = false
-            throw Errors.unableToGenerateSource(for: sourcePath, error)
+            throw Errors.unableToGenerateSource(for: sourcePath.string, error)
         }
         self.console.printVerbose("Generated source code", object: self)
         
@@ -541,7 +532,7 @@ let package = Package(
 """
         for (index, package) in includePackages.enumerated() {
             if index > 0 && index < (includePackages.count-1) { packageSourceCode += ",\n" }
-            packageSourceCode += "        .package(url: \"\(package.url)\", from: \"\(package.from)\")"
+            packageSourceCode += "        .package(url: \"\(package.url)\", \(package.requirements.tag))"
         }
         
         packageSourceCode += """
@@ -557,24 +548,27 @@ let package = Package(
     ]
 )
 """
-        let packageFileName = projectDestination.appendingPathComponent("Package.swift",
-                                                                        isDirectory: false)
+        let packageFilePath = projectDestination.appendingComponent("Package.swift")
         
         do {
-            try packageSourceCode.write(to: packageFileName,
+            try packageSourceCode.write(to: packageFilePath,
                                         atomically: false,
-                                        encoding: DynamicSourceCodeGenerator.PACKAGE_FILE_ENCODING)
+                                        encoding: DynamicSourceCodeGenerator.PACKAGE_FILE_ENCODING,
+                                        using: fileManager)
         } catch {
-            throw Errors.unableToWriteFile(atPath: packageFileName.path, error)
+            throw Errors.unableToWriteFile(atPath: packageFilePath.string, error)
         }
         
         self.console.printVerbose("Wrote Package.swift file", object: self)
         
-        let classFileName = moduleSourceFolder.appendingPathComponent("main.swift", isDirectory: false)
+        let classFilePath = moduleSourceFolder.appendingComponent("main.swift")
         do {
-            try srcBuilderSrc.write(to: classFileName, atomically: false, encoding: srcBuilderEnc)
+            try srcBuilderSrc.write(to: classFilePath,
+                                    atomically: false,
+                                    encoding: srcBuilderEnc,
+                                    using: fileManager)
         } catch {
-            throw Errors.unableToWriteFile(atPath: classFileName.path, error)
+            throw Errors.unableToWriteFile(atPath: classFilePath.string, error)
         }
         self.console.printVerbose("Wrote main.swift", object: self)
         
@@ -584,10 +578,14 @@ let package = Package(
                 .replacingOccurrences(of: "../", with: "/")
                 .replacingOccurrences(of: "./", with: "")
             
-            let toPath = moduleSourceFolder.appendingPathComponent(relPath)
+            //let toPath = moduleSourceFolder + relPath
+            let toPath = moduleSourceFolder.appendingComponent(relPath.string)
             
-            try include.copyFiles(to: toPath.path,
-                                  console: self.console)
+            let count = try include.copyFiles(to: toPath,
+                                              console: self.console)
+            if count == 0 {
+                console.print("WARNING: No files copied from '\(include.path)'")
+            }
         }
         
         return (moduleName: moduleName,
@@ -598,11 +596,12 @@ let package = Package(
     
     
     
-    private func updateModule(sourcePath: String, moduleLocation: URL) throws {
+    private func updateModule(sourcePath: FSPath,
+                              moduleLocation: FSPath) throws {
         self.console.printVerbose("Loading external resources", object: self)
         
         let pkgUpdateResponse = try self.swiftCLI.waitAndCaptureStringResponse(arguments: ["package", "update"],
-                                                                               currentDirectory: URL(fileURLWithPath: moduleLocation.path),
+                                                                               currentDirectory: moduleLocation.url,
                                                                                outputOptions: .captureAll)
         
         if pkgUpdateResponse.exitStatusCode != 0 {
@@ -616,7 +615,7 @@ let package = Package(
             if let r = errStr.range(of: "\nerror: terminated(1):") {
                 errStr = String(errStr.prefix(upTo: r.lowerBound))
             }
-            throw Errors.buildModuleFailed(for: sourcePath,
+            throw Errors.buildModuleFailed(for: sourcePath.string,
                                            withCode: Int(pkgUpdateResponse.exitStatusCode),
                                            returingError: errStr)
         }
@@ -626,11 +625,12 @@ let package = Package(
         
     }
     
-    private func buildModule(sourcePath: String, moduleLocation: URL) throws -> String {
+    private func buildModule(sourcePath: FSPath,
+                             moduleLocation: FSPath) throws -> FSPath {
         self.console.printVerbose("Compiling generator", object: self)
         
         let buildResponse = try self.swiftCLI.waitAndCaptureStringResponse(arguments: ["build"],
-                                                                           currentDirectory: URL(fileURLWithPath: moduleLocation.path),
+                                                                           currentDirectory: moduleLocation.url,
                                                                            outputOptions: .captureAll)
         
         if buildResponse.exitStatusCode != 0 {
@@ -644,13 +644,13 @@ let package = Package(
             if let r = errStr.range(of: "\nerror: terminated(1):") {
                 errStr = String(errStr.prefix(upTo: r.lowerBound))
             }
-            throw Errors.buildModuleFailed(for: sourcePath,
+            throw Errors.buildModuleFailed(for: sourcePath.string,
                                            withCode: Int(buildResponse.exitStatusCode),
                                            returingError: errStr)
         }
         
         let buildPathResponse = try self.swiftCLI.waitAndCaptureStringResponse(arguments: ["build", "--show-bin-path"],
-                                                                           currentDirectory: URL(fileURLWithPath: moduleLocation.path),
+                                                                           currentDirectory: moduleLocation.url,
                                                                            outputOptions: .captureAll)
         
         
@@ -663,21 +663,23 @@ let package = Package(
         let modulePathLines = modulePathStr.split(separator: "\n").map(String.init)
         modulePathStr = modulePathLines[modulePathLines.count - 1]
         
-        return modulePathStr
+        return FSPath(modulePathStr)
         
     }
     
-    private func runModule(atPath path: String, havingOutputEncoding encoding: String.Encoding) throws -> String {
+    private func runModule(atPath path: FSPath,
+                           havingOutputEncoding encoding: String.Encoding,
+                           using fileManager: FileManager) throws -> String {
         self.console.printVerbose("Running module generator \(path)", object: self)
         
-        let workingFolder: String = path.deletingLastPathComponent
-        let outputFile: String = workingFolder + "/" + "swift.out"
-        defer { try? FileManager.default.removeItem(atPath: outputFile) }
+        let workingFolder = path.deletingLastComponent()
+        let outputFile = workingFolder.appendingComponent("swift.out")
+        defer { try? outputFile.remove(using: fileManager) }
         
-        let cli = CLICapture(executable: URL(fileURLWithPath: path))
+        let cli = CLICapture(executable: path.url)
         
-        let runResponse = try cli.waitAndCaptureStringResponse(arguments: [outputFile],
-                                                               currentDirectory: URL(fileURLWithPath: workingFolder),
+        let runResponse = try cli.waitAndCaptureStringResponse(arguments: [outputFile.string],
+                                                               currentDirectory: workingFolder.url,
                                                                outputOptions: .captureAll)
         
         
@@ -685,24 +687,27 @@ let package = Package(
             self.console.printVerbose("There was an error while running module source generator", object: self)
             let errStr: String = runResponse.output ?? ""
             
-            throw Errors.runModuleFailed(for: path,
+            throw Errors.runModuleFailed(for: path.string,
                                          withCode: Int(runResponse.exitStatusCode),
                                          returingError: errStr)
         }
         
         self.console.printVerbose("Running module completed", object: self)
         
-        return try String(contentsOf: URL(fileURLWithPath: outputFile),
-                          encoding: encoding)
+        return try String(contentsOf: outputFile,
+                          encoding: encoding,
+                          using: fileManager)
     }
     
-    public func generateSource(from sourcePath: String,
-                               project: SwiftProject) throws -> (source: String, encoding: String.Encoding) {
+    public func generateSource(from sourcePath: FSPath,
+                               project: SwiftProject,
+                               using fileManager: FileManager) throws -> (source: String, encoding: String.Encoding) {
         
-        self.console.printVerbose("Creating module for '\(sourcePath.lastPathComponent)'", object: self)
+        self.console.printVerbose("Creating module for '\(sourcePath.lastComponent)'", object: self)
         let mod = try createModule(sourcePath: sourcePath,
-                                   project: project)
-        defer { try? FileManager.default.removeItem(at: mod.moduleLocation) }
+                                   project: project,
+                                   using: fileManager)
+        defer { try? mod.moduleLocation.remove(using: fileManager) }
         
         if mod.containsDependencies {
             // Try calling swift package update to download any dependencies
@@ -710,36 +715,40 @@ let package = Package(
                                   moduleLocation: mod.moduleLocation)
         }
         
-        self.console.printVerbose("Building module for '\(sourcePath.lastPathComponent)'", object: self)
-        var modulePathStr: String = try self.buildModule(sourcePath: sourcePath,
-                                                         moduleLocation: mod.moduleLocation)
-        modulePathStr += "/" + mod.moduleName
+        self.console.printVerbose("Building module for '\(sourcePath.lastComponent)'",
+                                  object: self)
+        let modulePath = try self.buildModule(sourcePath: sourcePath,
+                                              moduleLocation: mod.moduleLocation)
         
-        self.console.printVerbose("Running module for '\(sourcePath.lastPathComponent)'", object: self)
-        let src = try self.runModule(atPath: modulePathStr,
-                                     havingOutputEncoding: mod.sourceEncoding)
+        self.console.printVerbose("Running module for '\(sourcePath.lastComponent)'", object: self)
+        let src = try self.runModule(atPath: modulePath.appendingComponent(mod.moduleName),
+                                     havingOutputEncoding: mod.sourceEncoding,
+                                     using: fileManager)
         return (source: src, encoding: mod.sourceEncoding)
         
     }
     
     
     
-    public func generateSource(from sourcePath: String,
-                               to destinationPath: String,
+    public func generateSource(from sourcePath: FSPath,
+                               to destinationPath: FSPath,
                                project: SwiftProject,
-                               lockGenFiles: Bool) throws {
+                               lockGenFiles: Bool,
+                               using fileManager: FileManager) throws {
         self.console.printVerbose("Generating source for '\(sourcePath)'", object: self)
         let s = try self.generateSource(from: sourcePath,
-                                        project: project)
-        guard  FileManager.default.fileExists(atPath: destinationPath) else {
-            try s.source.write(toFile: destinationPath,
+                                        project: project,
+                                        using: fileManager)
+        guard  destinationPath.exists(using: fileManager) else {
+            try s.source.write(to: destinationPath,
                                atomically: false,
-                               encoding: s.encoding)
+                               encoding: s.encoding,
+                               using: fileManager)
             if lockGenFiles {
                 do {
                     //marking generated file as read-only
-                    try FileManager.default.setPosixPermissions(0444,
-                                                                ofItemAtPath: destinationPath)
+                    try destinationPath.setPosixPermissions(0444,
+                                                            using: fileManager)
                 } catch {
                     self.console.printVerbose("Unable to mark'\(destinationPath)' as readonly",
                                             object: self)
@@ -749,8 +758,10 @@ let package = Package(
         }
         
         
-        var enc: String.Encoding = project.xcodeFile(atPath: sourcePath)?.encoding ?? .utf8
-        let oldSource = try String(contentsOfFile: destinationPath, foundEncoding: &enc)
+        var enc: String.Encoding = project.xcodeFile(at: sourcePath)?.encoding ?? .utf8
+        let oldSource = try String(contentsOf: destinationPath,
+                                   foundEncoding: &enc,
+                                   using: fileManager)
         // Try and compare new source with old source.  Only update if they are not the same
         // We do this so that the file modification does not happen unless absolutely required
         // so git does not think its a new file unless it really is
@@ -761,19 +772,20 @@ let package = Package(
         }
        
         do {
-            try FileManager.default.removeItem(atPath: destinationPath)
+            try destinationPath.remove(using: fileManager)
         } catch {
             self.console.printVerbose("Unable to remove old version of '\(destinationPath)'",
                                     object: self)
         }
-        try s.source.write(toFile: destinationPath,
+        try s.source.write(to: destinationPath,
                            atomically: false,
-                           encoding: s.encoding)
+                           encoding: s.encoding,
+                           using: fileManager)
         if lockGenFiles {
             do {
                 //marking generated file as read-only
-                try FileManager.default.setPosixPermissions(0444,
-                                                            ofItemAtPath: destinationPath)
+                try destinationPath.setPosixPermissions(0444,
+                                                        using: fileManager)
             } catch {
                 self.console.printVerbose("Unable to mark'\(destinationPath)' as readonly",
                                         object: self)
@@ -784,21 +796,21 @@ let package = Package(
     // Check to see if any of the included files have been modified since the
     // destination has been genreated
     private func isGenerationOutOfSyncWithReferences(generationDate: Date,
-                                                     originalSource: String,
-                                                     source: URL,
+                                                     source: FSPath,
                                                      project: SwiftProject,
-                                                     fileManager: FileManager/* = .default*/) throws -> Bool {
+                                                     using fileManager: FileManager/* = .default*/) throws -> Bool {
         
         
         
-        let tags = try self.preloadedDetails.getDSwiftTags(in: source.path,
+        let tags = try self.preloadedDetails.getDSwiftTags(in: source,
                                                            encoding: nil,
                                                            project: project,
-                                                           console: self.console)
+                                                           console: self.console,
+                                                           using: fileManager)
         
         for tag in tags {
             if try tag.hasBeenModified(since: generationDate,
-                                       fileManager: fileManager,
+                                       using: fileManager,
                                        console: console) {
                 return true
             }
@@ -808,20 +820,21 @@ let package = Package(
         
     }
     
-    public func requiresSourceCodeGeneration(for source: URL,
+    public func requiresSourceCodeGeneration(for source: FSPath,
                                              project: SwiftProject,
-                                             fileManager: FileManager /* = .default */) throws -> Bool {
-        let destination = try generatedFilePath(for: source)
+                                             using fileManager: FileManager /* = .default */) throws -> Bool {
+        
+        let destination = try generatedFilePath(for: source, using: fileManager)
         
         // If the generated file does not exist, then return true
-        guard fileManager.fileExists(atPath: destination.path) else {
-            self.console.printVerbose("Generated file '\(destination.path)' does not exists",
+        guard destination.exists(using: fileManager) else {
+            self.console.printVerbose("Generated file '\(destination)' does not exists",
                                     object: self)
             return true
         }
         // Get the modification dates otherwise return true to rebuild
-        guard let srcMod = source.fsSafePath?.modificationDate(),
-              let desMod = destination.fsSafePath?.modificationDate() else {
+        guard let srcMod = source.safely.modificationDate(using: fileManager),
+              let desMod = destination.safely.modificationDate(using: fileManager) else {
                   self.console.printVerbose("Wasn't able to get all modification dates",
                                           object: self)
             return true
@@ -829,25 +842,26 @@ let package = Package(
         
         // Source or static file is newer than destination, meaning we must rebuild
         guard srcMod <= desMod else {
-            self.console.printVerbose("'\(source.path)' is newer",
+            self.console.printVerbose("'\(source)' is newer",
                                     object: self)
             return true
         }
         
         guard !(try self.checkForFailedGenerationCommentInDestination(for: source,
-                                                                      destination: destination)) else {
+                                                                      destination: destination,
+                                                                         using: fileManager)) else {
             return true
         }
         
-        self.console.printVerbose("Checking for modified includes within '\(source.path)'",
+        self.console.printVerbose("Checking for modified includes within '\(source)'",
                                 object: self)
         // Check to see if any of the included files have been modified since the
         // destination has been genreated
         let outOfSync = try self.isGenerationOutOfSyncWithReferences(generationDate: desMod,
-                                                                    originalSource: source.path,
+                                                                    //originalSource: source.path,
                                                                     source: source,
                                                                      project: project,
-                                                                     fileManager: fileManager)
+                                                                     using: fileManager)
         guard !outOfSync else {
             return true
         }
@@ -860,7 +874,8 @@ let package = Package(
     public func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource,
                                    inGroup group: XcodeGroup,
                                    havingTarget target: XcodeTarget,
-                                   includeGeneratedFilesInXcodeProject: Bool) throws -> Bool {
+                                   includeGeneratedFilesInXcodeProject: Bool,
+                                   using fileManager: FileManager) throws -> Bool {
         var rtn: Bool = false
 
         if group.file(atPath: xcodeFile.lastPathComponent) == nil {
@@ -874,8 +889,8 @@ let package = Package(
                                     object: self)
             
             //f.languageSpecificationIdentifier = "xcode.lang.swift"
-            f.languageSpecificationIdentifier = self.languageForXcode(file: xcodeFile.path)
-            f.explicitFileType = self.explicitFileTypeForXcode(file: xcodeFile.path)
+            f.languageSpecificationIdentifier = self.languageForXcode(file: xcodeFile)
+            f.explicitFileType = self.explicitFileTypeForXcode(file: xcodeFile)
             target.sourcesBuildPhase().createBuildFile(for: f)
             //print("Adding dswift file '\(child.path)'")
             rtn = true
@@ -883,7 +898,7 @@ let package = Package(
        
             
         
-        let swiftName = try self.generatedFilePath(for: xcodeFile.path).lastPathComponent
+        let swiftName = try self.generatedFilePath(for: xcodeFile).lastComponent
         if let f = group.file(atPath: swiftName) {
             
             //let source = try String(contentsOf: URL(fileURLWithPath: f.fullPath), encoding: f.encoding ?? .utf8)
