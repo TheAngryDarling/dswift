@@ -98,7 +98,7 @@ Here is an exmple of the default configuration file with all fields defined
     //          {
     //              "name": "Section Name",
     //              "description": [
-    //                  "Description array seperated by lines",
+    //                  "Description array separated by lines",
     //              ],
     //              "items": [
     //                  "Rule",
@@ -134,7 +134,7 @@ Here is an exmple of the default configuration file with all fields defined
     //          {
     //              "name": "Section Name",
     //              "description": [
-    //                  "Description array seperated by lines",
+    //                  "Description array separated by lines",
     //              ],
     //              "items": [
     //                  "Rule",
