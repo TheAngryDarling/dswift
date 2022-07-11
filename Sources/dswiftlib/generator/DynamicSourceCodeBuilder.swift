@@ -7,6 +7,7 @@
 
 import Foundation
 import VersionKit
+import PathHelpers
 
 public class DynamicSourceCodeBuilder {
     
@@ -132,8 +133,10 @@ public class DynamicSourceCodeBuilder {
             }
             
             func generateContent(source: String,
-                                 file: String) throws -> GeneratedContent {
-                return try self.type.generateContent(block: self, source: source, file: file)
+                                 file: FSPath) throws -> GeneratedContent {
+                return try self.type.generateContent(block: self,
+                                                     source: source,
+                                                     file: file)
             }
         }
         
@@ -186,7 +189,9 @@ public class DynamicSourceCodeBuilder {
             self.blocks = blocks.sorted( by: { $0.openingBrace.count > $1.openingBrace.count } )
         }
         
-        func nextBlockSet(from string: String, startingAt: String.Index, inFile file: String) throws -> CodeBlock? {
+        func nextBlockSet(from string: String,
+                          startingAt: String.Index,
+                          inFile file: FSPath) throws -> CodeBlock? {
             //If we are at the end index, we are done
             guard startingAt !=  string.endIndex else { return nil }
             // Looks for opening block brace.  If not found we return the whole string as a text block
@@ -196,7 +201,9 @@ public class DynamicSourceCodeBuilder {
                 if stBlockIndex == nil || closeBlockIndex < stBlockIndex! {
                     let line = string.countOccurrences(of: "\n",
                                                        inRange: string.startIndex..<closeBlockIndex)
-                    throw Errors.missingOpeningBlock(for: self.closing, in: file, onLine: line + 1)
+                    throw Errors.missingOpeningBlock(for: self.closing,
+                                                        in: file.string,
+                                                        onLine: line + 1)
                 }
             }
             
@@ -230,7 +237,10 @@ public class DynamicSourceCodeBuilder {
                     guard let endBlockIndex: String.Index = string.range(of: ed, range:startBlockIndex..<string.endIndex)?.lowerBound else {
                         let line = string.countOccurrences(of: "\n",
                                                            inRange: string.startIndex..<startBlockIndex)
-                        throw Errors.missingClosingBlock(closing: ed, for: op, in: file, onLine: line + 1)
+                        throw Errors.missingClosingBlock(closing: ed,
+                                                         for: op,
+                                                         in: file.string,
+                                                         onLine: line + 1)
                     }
                     
                     let innerOpening: String.Index = string.index(startBlockIndex, offsetBy: op.count)
@@ -286,7 +296,7 @@ public class DynamicSourceCodeBuilder {
     
     
     private var source: String = ""
-    private var file: String
+    private var file: FSPath
     public private(set) var clsName: String
     public private(set) var sourceEncoding: String.Encoding
     public let dswiftInfo: DSwiftInfo
@@ -297,13 +307,14 @@ public class DynamicSourceCodeBuilder {
     public let includePackages: [DSwiftTag.Include.GitPackageDependency]
     public let swiftProject: SwiftProject
     
-    public init(file: String,
+    public init(file: FSPath,
                 swiftProject: SwiftProject,
                 //fileEncoding: String.Encoding? = nil,
                 className: String,
                 dswiftInfo: DSwiftInfo,
                 preloadedDetails: DynamicSourceCodeGenerator.PreloadedDetails,
-                console: Console = .null) throws {
+                console: Console = .null,
+                      using fileManager: FileManager) throws {
         
         //self.generator = generator
         self.swiftProject = swiftProject
@@ -312,9 +323,12 @@ public class DynamicSourceCodeBuilder {
         self.file = file
         self.preloadedDetails = preloadedDetails
         
-        let content = try preloadedDetails.getSourceContent(for: file.fullPath(),
+        let fullFilePath = file.fullPath()
+        
+        let content = try preloadedDetails.getSourceContent(for: fullFilePath,
                                                             project: swiftProject,
-                                                            console: console)
+                                                            console: console,
+                                                               using: fileManager)
         
         self.source = content.content
         self.sourceEncoding = content.encoding
@@ -322,7 +336,7 @@ public class DynamicSourceCodeBuilder {
        
         self.clsName = className
         
-        try DynamicSourceCodeBuilder.validateDSwiftToolsVersion(from: file.fullPath(),
+        try DynamicSourceCodeBuilder.validateDSwiftToolsVersion(from: fullFilePath,
                                                                 source: self.source,
                                                                 preloadedDetails: preloadedDetails,
                                                                 dSwiftVersion: self.dswiftInfo.version,
@@ -330,11 +344,12 @@ public class DynamicSourceCodeBuilder {
         
         
         // If we support Include blocks, we will automatically import them before processing any other blocks
-        let (processIncludesTime, processedTags) = try Timer.timeWithResults(block: try DynamicSourceCodeBuilder.processDSwiftTags(from: file.fullPath(),
+        let (processIncludesTime, processedTags) = try Timer.timeWithResults(block: try DynamicSourceCodeBuilder.processDSwiftTags(from: fullFilePath,
                                                                                                                                    project: swiftProject,
-                                             dswiftInfo: dswiftInfo,
-                                             preloadedDetails: preloadedDetails,
-                                             console: console))
+                                                                                                                                   dswiftInfo: dswiftInfo,
+                                                                                                                                   preloadedDetails: preloadedDetails,
+                                                                                                                                   console: console,
+                                                                                                                                   using: fileManager))
         
         //print("processTags took \(processIncludesTime)(s)")
         self.source = processedTags.source
@@ -346,7 +361,7 @@ public class DynamicSourceCodeBuilder {
     
     
     
-    public static func parseDSwiftToolsVersion(from: String,
+    public static func parseDSwiftToolsVersion(from path: FSPath,
                                              source: String,
                                              console: Console = .null) throws -> Version.SingleVersion? {
         
@@ -361,20 +376,20 @@ public class DynamicSourceCodeBuilder {
         line = line.trimmingCharacters(in: .whitespaces)
         
         guard let verNum = Version.SingleVersion(line) else {
-            throw Errors.invalidDSwiftToolsVersionNumber(for: from, ver: line)
+            throw Errors.invalidDSwiftToolsVersionNumber(for: path.string, ver: line)
         }
         
         return verNum
         
     }
     
-    private static func validateDSwiftToolsVersion(from: String,
+    private static func validateDSwiftToolsVersion(from path: FSPath,
                                                    source: String,
                                                    dSwiftVersion: Version.SingleVersion,
                                                    srcRequiredVersion: Version.SingleVersion) throws {
         
         guard dSwiftVersion >= srcRequiredVersion else {
-            throw Errors.minimumDSwiftToolsVersionNotMet(for: from,
+            throw Errors.minimumDSwiftToolsVersionNotMet(for: path.string,
                                                             expected: srcRequiredVersion.description,
                                                             found: dSwiftVersion.description,
                                                             description: nil)
@@ -382,7 +397,7 @@ public class DynamicSourceCodeBuilder {
     }
     
     
-    private static func validateDSwiftToolsVersion(from path: String,
+    private static func validateDSwiftToolsVersion(from path: FSPath,
                                                    source: String,
                                                    preloadedDetails: DynamicSourceCodeGenerator.PreloadedDetails,
                                                    dSwiftVersion: Version.SingleVersion,
@@ -402,10 +417,11 @@ public class DynamicSourceCodeBuilder {
                                             srcRequiredVersion: requiedToolsVersion)
     }
     
-    public static func parseDSwiftTags(in path: String,
+    public static func parseDSwiftTags(in path: FSPath,
                                        source: String,
                                        project: SwiftProject,
-                                       console: Console = .null) throws -> [DSwiftTag] {
+                                       console: Console = .null,
+                                       using fileManager: FileManager) throws -> [DSwiftTag] {
     
         // Get a list of all available tags
         let supportedTags: [TagBlockDefinition] = self.blockDefinitions.blocks.compactMap {
@@ -433,7 +449,7 @@ public class DynamicSourceCodeBuilder {
                 
                 throw Errors.missingClosingBlock(closing: closingBlock,
                                                  for: tagBeginning,
-                                                 in: path,
+                                                 in: path.string,
                                                  onLine: line + 1)
             }
             
@@ -446,7 +462,7 @@ public class DynamicSourceCodeBuilder {
                 let line = source.countOccurrences(of: "\n",
                                                    inRange: source.startIndex..<startTagRange.lowerBound)
                 
-                throw Errors.invalidTag(tag: tagName, in: path, onLine: line + 1)
+                throw Errors.invalidTag(tag: tagName, in: path.string, onLine: line + 1)
             }
             
             // Working index for searching for tag attributes
@@ -473,7 +489,7 @@ public class DynamicSourceCodeBuilder {
                     // Failed to find start of tag attribute name
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
-                    throw Errors.invalidTag(tag: tagName, in: path, onLine: line)
+                    throw Errors.invalidTag(tag: tagName, in: path.string, onLine: line)
                 }
                 
                 var endOfAttributeNameIndex = startOfAttributeNameIndex
@@ -488,14 +504,14 @@ public class DynamicSourceCodeBuilder {
                     // Found whitespace when tring to find end of attribute name
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
-                    throw Errors.invalidTag(tag: tagName, in: path, onLine: line)
+                    throw Errors.invalidTag(tag: tagName, in: path.string, onLine: line)
                 }
                 // Make sure not at end of tag
                 guard endOfAttributeNameIndex < endTagRange.lowerBound else {
                     // Failed to find end of attribute name
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
-                    throw Errors.invalidTag(tag: tagName, in: path, onLine: line)
+                    throw Errors.invalidTag(tag: tagName, in: path.string, onLine: line)
                 }
                 // Get attribute name
                 let attribName = String(source[startOfAttributeNameIndex..<endOfAttributeNameIndex])
@@ -507,7 +523,7 @@ public class DynamicSourceCodeBuilder {
                     //Missing attribute value start index
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
-                    throw Errors.invalidTag(tag: tagName, in: path, onLine: line)
+                    throw Errors.invalidTag(tag: tagName, in: path.string, onLine: line)
                 }
                 
                 guard source[startOfAttributeValueIndex] == "\"" ||
@@ -515,7 +531,7 @@ public class DynamicSourceCodeBuilder {
                     // Expected to find start of string
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
-                    throw Errors.invalidTag(tag: tagName, in: path, onLine: line)
+                    throw Errors.invalidTag(tag: tagName, in: path.string, onLine: line)
                 }
                 // The attribute value quote (either " or ')
                 let attribStringIndicator = source[startOfAttributeValueIndex]
@@ -531,14 +547,14 @@ public class DynamicSourceCodeBuilder {
                     // Invalid character in attribute value
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
-                    throw Errors.invalidTag(tag: tagName, in: path, onLine: line)
+                    throw Errors.invalidTag(tag: tagName, in: path.string, onLine: line)
                 }
                 
                 guard endOfAttributeValueIndex < endTagRange.lowerBound else {
                     //Missing attribute value end index
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
-                    throw Errors.invalidTag(tag: tagName, in: path, onLine: line)
+                    throw Errors.invalidTag(tag: tagName, in: path.string, onLine: line)
                 }
                 
                 // Move past the opening Quote (either ' or ")
@@ -569,7 +585,8 @@ public class DynamicSourceCodeBuilder {
                                                           path: path,
                                                           tagRange: startTagRange.lowerBound..<endTagRange.upperBound,
                                                           project: project,
-                                                          console: console)
+                                                          console: console,
+                                                          using: fileManager)
             
             rtn.append(tagReference)
             
@@ -646,11 +663,12 @@ public class DynamicSourceCodeBuilder {
         }
     }
     
-    static func findTags(in path: String,
+    static func findTags(in path: FSPath,
                          source: String,
                          blockDefinitions: DynamicSourceCodeBuilder.CodeBlockIdentifiers = DynamicSourceCodeBuilder.blockDefinitions,
                          project: SwiftProject,
-                         console: Console = .null) throws -> [DSwiftTag] {
+                         console: Console = .null,
+                         using fileManager: FileManager) throws -> [DSwiftTag] {
     
         // Get a list of all available tags
         let supportedTags: [TagBlockDefinition] = blockDefinitions.blocks.compactMap {
@@ -679,7 +697,7 @@ public class DynamicSourceCodeBuilder {
                 
                 throw DynamicSourceCodeBuilder.Errors.missingClosingBlock(closing: closingBlock,
                                                  for: tagBeginning,
-                                                 in: path,
+                                                                          in: path.string,
                                                  onLine: line + 1)
             }
             
@@ -693,7 +711,7 @@ public class DynamicSourceCodeBuilder {
                                                    inRange: source.startIndex..<startTagRange.lowerBound)
                 
                 throw DynamicSourceCodeBuilder.Errors.invalidTag(tag: tagName,
-                                                                 in: path,
+                                                                 in: path.string,
                                                                  onLine: line + 1)
             }
             
@@ -722,7 +740,7 @@ public class DynamicSourceCodeBuilder {
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
                     throw DynamicSourceCodeBuilder.Errors.invalidTag(tag: tagName,
-                                                                     in: path,
+                                                                     in: path.string,
                                                                      onLine: line)
                 }
                 
@@ -739,7 +757,7 @@ public class DynamicSourceCodeBuilder {
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
                     throw DynamicSourceCodeBuilder.Errors.invalidTag(tag: tagName,
-                                                                     in: path,
+                                                                     in: path.string,
                                                                      onLine: line)
                 }
                 // Make sure not at end of tag
@@ -748,7 +766,7 @@ public class DynamicSourceCodeBuilder {
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
                     throw DynamicSourceCodeBuilder.Errors.invalidTag(tag: tagName,
-                                                                     in: path,
+                                                                     in: path.string,
                                                                      onLine: line)
                 }
                 // Get attribute name
@@ -762,7 +780,7 @@ public class DynamicSourceCodeBuilder {
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
                     throw DynamicSourceCodeBuilder.Errors.invalidTag(tag: tagName,
-                                                                     in: path,
+                                                                     in: path.string,
                                                                      onLine: line)
                 }
                 
@@ -772,7 +790,7 @@ public class DynamicSourceCodeBuilder {
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
                           throw DynamicSourceCodeBuilder.Errors.invalidTag(tag: tagName,
-                                                                           in: path,
+                                                                           in: path.string,
                                                                            onLine: line)
                 }
                 // The attribute value quote (either " or ')
@@ -790,7 +808,7 @@ public class DynamicSourceCodeBuilder {
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
                     throw DynamicSourceCodeBuilder.Errors.invalidTag(tag: tagName,
-                                                                     in: path,
+                                                                     in: path.string,
                                                                      onLine: line)
                 }
                 
@@ -799,7 +817,7 @@ public class DynamicSourceCodeBuilder {
                     let line = source.countOccurrences(of: "\n",
                                                        inRange: source.startIndex..<startTagRange.lowerBound)
                     throw DynamicSourceCodeBuilder.Errors.invalidTag(tag: tagName,
-                                                                     in: path,
+                                                                     in: path.string,
                                                                      onLine: line)
                 }
                 
@@ -828,7 +846,8 @@ public class DynamicSourceCodeBuilder {
                                                           path: path,
                                                           tagRange: startTagRange.lowerBound..<endTagRange.upperBound,
                                                           project: project,
-                                                          console: console)
+                                                          console: console,
+                                                          using: fileManager)
             
             rtn.append(tagReference)
             
@@ -837,21 +856,20 @@ public class DynamicSourceCodeBuilder {
         return rtn
     }
     
-    public static func processDSwiftTags(from path: String,
-                                           //source: String,
-                                           //externalReferences: ExternalReferences = .init(),
+    public static func processDSwiftTags(from path: FSPath,
                                          tagReplacementDetails: DynamicSourceCodeGenerator.TagReplacementDetails = .init(),
-                                           //tags: [DSwiftTag],
                                          project: SwiftProject,
-                                           dswiftInfo: DSwiftInfo,
-                                           preloadedDetails: DynamicSourceCodeGenerator.PreloadedDetails,
-                                           console: Console = .null) throws -> ProcessedTags {
+                                         dswiftInfo: DSwiftInfo,
+                                         preloadedDetails: DynamicSourceCodeGenerator.PreloadedDetails,
+                                         console: Console = .null,
+                                         using fileManager: FileManager) throws -> ProcessedTags {
         
         
         // Get source content
         let source = try preloadedDetails.getSourceContent(for: path,
                                                            project: project,
-                                                           console: console).content
+                                                           console: console,
+                                                              using: fileManager).content
         
         var rtn = ProcessedTags(source: source)
         
@@ -876,7 +894,8 @@ public class DynamicSourceCodeBuilder {
         var tags = try preloadedDetails.getDSwiftTags(in: path,
                                                       source: source,
                                                       project: project,
-                                                      console: console)
+                                                      console: console,
+                                                      using: fileManager)
         
         //rtn.append(tags)
         
@@ -911,7 +930,8 @@ public class DynamicSourceCodeBuilder {
                                                                 project: project,
                                                              dswiftInfo: dswiftInfo,
                                                              preloadedDetails: preloadedDetails,
-                                                             console: console)
+                                                             console: console,
+                                                                using: fileManager)
             
             rtn.append(replacementDetails.includeFolders)
             rtn.append(replacementDetails.includePackages)
@@ -947,8 +967,7 @@ public class DynamicSourceCodeBuilder {
             if index < tags.count - 1 {
                 for i in (index+1)..<tags.count {
                     //print("[\(index)][\(path.lastPathComponent)]: Updated tagRange \(i+1)/\(tags.count)")
-                    tags[i].adjustingTagRange(difference: changeCount/*,
-                                              in: rtn.source*/)
+                    tags[i].adjustingTagRange(difference: changeCount)
                 }
             }
             
@@ -1021,7 +1040,7 @@ public class DynamicSourceCodeBuilder {
         completeSource += "\t\tlet out = Out()\n\n"
         completeSource += "\t\tvar sourceBuilder = out\n\n"
         
-        completeSource += "\t\tsourceBuilder += \"//  This file was dynamically generated from '\(self.file.lastPathComponent)' by \(self.dswiftInfo.moduleName) v\(self.dswiftInfo.version).  Please do not modify directly.\\n\"\n"
+        completeSource += "\t\tsourceBuilder += \"//  This file was dynamically generated from '\(self.file.lastComponent)' by \(self.dswiftInfo.moduleName) v\(self.dswiftInfo.version).  Please do not modify directly.\\n\"\n"
         completeSource += "\t\tsourceBuilder += \"//  \(self.dswiftInfo.moduleName) can be found at \(self.dswiftInfo.url).\\n\\n\"\n"
         completeSource += generatorContent
         completeSource += "\n\t\treturn sourceBuilder.buffer\n"
