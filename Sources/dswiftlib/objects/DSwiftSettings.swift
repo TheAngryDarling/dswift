@@ -10,6 +10,8 @@ import XcodeProj
 import BasicCodableHelpers
 import SwiftPatches
 import VersionKit
+import PathHelpers
+import JSONCommentCleaner
 
 /// Settings structure for the config file
 public struct DSwiftSettings {
@@ -381,7 +383,7 @@ public struct DSwiftSettings {
         ///   - name: The name of the Project
         ///   - dswiftMessage: Indicator if the DSwift Message should be included
         ///   - dswiftInfo: Information about the current version of DSwift
-        ///   - currentProjectURL: The URL to the project
+        ///   - currentProjectPath: The Path to the project
         ///   - authorName: The Authors name
         ///   - repository: The Authors Repository Information
         ///   - license: The license for this Project
@@ -392,12 +394,12 @@ public struct DSwiftSettings {
                                    withName name: String,
                                    includeDSwiftMessage dswiftMessage: Bool = true,
                                    dswiftInfo: DSwiftInfo,
-                                   currentProjectURL: URL,
+                                   currentProjectPath: FSPath,
                                    authorName: String? = nil,
                                    repository: Repository? = nil,
                                    license: License,
                                    date: Date = Date(),
-                                   console: Console = .null) throws -> GeneratedReadMeResponse? {
+                                   console: Console = .null) throws -> GeneratedReadMeResponse?  {
             
             guard let readmeType = self.getType(forName: modType) else { return nil }
             
@@ -436,10 +438,10 @@ public struct DSwiftSettings {
             } else {
                 var readmeContents: String = "# \(name)\n\n"
                 var packageVersion: String = "4.0"
-                let packageFileURL = currentProjectURL.appendingPathComponent("Package.swift")
-                if FileManager.default.fileExists(atPath: packageFileURL.path) {
+                let packageFilePath = currentProjectPath.appendingComponent("Package.swift")
+                if packageFilePath.exists() {
                     do {
-                        let src = try String(contentsOf: packageFileURL)
+                        let src = try String(contentsOf: packageFilePath.url)
                         let firstLine = String(src.split(separator: "\n").first!)
                         packageVersion = firstLine.replacingOccurrences(of: "// swift-tools-version:", with: "")
                         readmeContents += "![swift >= \(packageVersion)](https://img.shields.io/badge/swift-%3E%3D\(packageVersion)-brightgreen.svg)\n"
@@ -511,7 +513,7 @@ public struct DSwiftSettings {
         ///   - project: The URL to the project
         ///   - generator: The generators
         /// - Returns: Returns true if build rules can be added otherwise false
-        public func canAddBuildRules(_ project: URL,
+        public func canAddBuildRules(_ project: FSPath,
                                      generator: GroupGenerator) throws -> Bool {
             switch self {
                 case .always: return true
@@ -530,9 +532,9 @@ public struct DSwiftSettings {
     }
     
     /// The default swift path
-    public static let defaultSwiftPath: String = "/usr/bin/swift"
+    public static let defaultSwiftPath: FSPath = FSPath("/usr/bin/swift")
     /// The path to the swift to use (Default: DSwiftSettings.defaultSwiftPath)
-    public var swiftPath: String
+    public var swiftPath: FSPath
     /// Indictor if the Xcode Project structure should be sorted or not
     public let xcodeResourceSorting: XcodeProjectFileResourceSorting
     /// License settings
@@ -606,7 +608,7 @@ extension DSwiftSettings: Codable {
         #if NO_DSWIFT_PARAMS
         self.swiftPath = DSwiftSettings.defaultSwiftPath
         #else
-        self.swiftPath = try container.decodeIfPresent(String.self,
+        self.swiftPath = try container.decodeIfPresent(FSPath.self,
                                                        forKey: .swiftPath,
                                                        withDefaultValue: DSwiftSettings.defaultSwiftPath)
         #endif
@@ -676,12 +678,7 @@ extension DSwiftSettings: Codable {
                 encoding: String.Encoding = .utf8) throws {
         
         // Remove any comments
-        let str = try JSONStringHelper.removeComments(json: string,
-                                                      options: .removeEmptyLines,
-                                                      commentBlocks: .pound, .doubleSlash, .slashStar)
-        
-        
-        
+        let str = try JSONDefaultCommentCleaner().parse(string)
         
         guard let dta = str.data(using: encoding) else {
             throw SettingsErrors.unableToConvertStringToData(string: str,
@@ -837,40 +834,40 @@ extension DSwiftSettings.License: Codable {
  
 extension DSwiftSettings {
     /// Write license to given location
-    public func writeLicense(to url: URL,
+    public func writeLicense(to path: FSPath,
                              console: Console = .null) throws {
         switch self.license {
             case .file(let licenseURL):
                 console.print("Creating License.md")
                 if licenseURL.isFileURL {
-                    let path = licenseURL.path
-                    let lURL = URL(fileURLWithPath: NSString(string: path).expandingTildeInPath)
-                    try FileManager.default.copyItem(at: lURL, to: url)
+                    let licensePath = licenseURL.path
+                    let lURL = URL(fileURLWithPath: NSString(string: licensePath).expandingTildeInPath)
+                    try FileManager.default.copyItem(at: lURL, to: path.url)
                 } else {
                     let dta = try Data(contentsOf: licenseURL)
-                    try dta.write(to: url, options: .atomic)
+                    try dta.write(to: path.url, options: .atomic)
                 }
             case .apache2_0:
                 console.print("Creating License.md")
-                try Licenses.apache2_0().write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.apache2_0().write(to: path.url, atomically: true, encoding: .utf8)
             case .gnuGPL3_0:
                 console.print("Creating License.md")
-                try Licenses.gnuGPL3_0().write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.gnuGPL3_0().write(to: path.url, atomically: true, encoding: .utf8)
             case .gnuAGPL3_0:
                 console.print("Creating License.md")
-                try Licenses.gnuAGPL3_0().write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.gnuAGPL3_0().write(to: path.url, atomically: true, encoding: .utf8)
             case .gnuLGPL3_0:
                 console.print("Creating License.md")
-                try Licenses.gnuLGPL3_0().write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.gnuLGPL3_0().write(to: path.url, atomically: true, encoding: .utf8)
             case .mozilla2_0:
                 console.print("Creating License.md")
-                try Licenses.mozilla2_0().write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.mozilla2_0().write(to: path.url, atomically: true, encoding: .utf8)
             case .mit:
                 console.print("Creating License.md")
-                try Licenses.mit(settings: self).write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.mit(settings: self).write(to: path.url, atomically: true, encoding: .utf8)
             case .unlicense:
                 console.print("Creating License.md")
-                try Licenses.unlicense().write(to: url, atomically: true, encoding: .utf8)
+                try Licenses.unlicense().write(to: path.url, atomically: true, encoding: .utf8)
             default: break
         }
     }
@@ -992,21 +989,20 @@ extension DSwiftSettings.ReadMe: Codable {
 }
 extension DSwiftSettings {
     /// Write readme file to specific location
-    public func writeReadMe(to url: URL,
+    public func writeReadMe(to path: FSPath,
                             for modType: String,
                             withName name: String,
                             includeDSwiftMessage dswiftMessage: Bool = true,
                             dswiftInfo: DSwiftInfo,
-                            currentProjectURL: URL,
+                            currentProjectPath: FSPath,
                             console: Console = .null) throws {
         do {
-        
             
             guard let gen = try self.self.readme.generateReadMe(for: modType,
                                                                 withName: name,
                                                                 includeDSwiftMessage: dswiftMessage,
                                                                 dswiftInfo: dswiftInfo,
-                                                                currentProjectURL: currentProjectURL,
+                                                                currentProjectPath: currentProjectPath,
                                                                 authorName: self.authorName,
                                                                 license: self.license,
                                                                 console: console) else {
@@ -1020,7 +1016,7 @@ extension DSwiftSettings {
                     console.print("Replacing README.md with generated file", object: self)
             }
             
-            try gen.content.write(to: url,
+            try gen.content.write(to: path.url,
                                   atomically: true,
                                   encoding: gen.encoding)
             
