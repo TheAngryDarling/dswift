@@ -7,6 +7,7 @@
 
 import Foundation
 
+/*
 public extension URL {
     /// Get the path object for the given fs path
     var fsPath: FSPath? {
@@ -18,3 +19,4 @@ public extension URL {
         return FSSafePath(self.path)
     }
 }
+*/
