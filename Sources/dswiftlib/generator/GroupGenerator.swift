@@ -9,12 +9,12 @@ import Foundation
 import VersionKit
 import XcodeProj
 import CLICapture
+import PathHelpers
 
 
 
 /// Generator class that contains multiple child generators
 public class GroupGenerator: DynamicGenerator {
-    
     
     private static let GENERATORS: [DynamicGenerator.Type] = [DynamicSourceCodeGenerator.self, StaticFileSourceCodeGenerator.self]
     
@@ -22,8 +22,8 @@ public class GroupGenerator: DynamicGenerator {
     public var dswiftInfo: DSwiftInfo { return self.generators.first!.dswiftInfo }
     public var console: Console { return self.generators.first!.console }
     
-    public var supportedExtensions: [String] {
-        var rtn: [String] = []
+    public var supportedExtensions: [FSExtension] {
+        var rtn: [FSExtension] = []
         for generator in self.generators {
             rtn.append(contentsOf: generator.supportedExtensions)
         }
@@ -54,7 +54,7 @@ public class GroupGenerator: DynamicGenerator {
     }
     
     
-    private func getGenerator(for source: String) -> DynamicGenerator? {
+    private func getGenerator(for source: FSPath) -> DynamicGenerator? {
         for generator in self.generators {
             if generator.isSupportedFile(source) {
                return generator
@@ -63,53 +63,36 @@ public class GroupGenerator: DynamicGenerator {
         return nil
     }
     
-    private func getGenerator(for source: URL) -> DynamicGenerator? {
-        return self.getGenerator(for: source.path)
+    private func getGenerator(for source: XcodeFileSystemURLResource) -> DynamicGenerator? {
+        return self.getGenerator(for: FSPath(source.path))
     }
     
-    public func generatedFilePath(for source: String) throws -> String {
+    public func generatedFilePath(for source: FSPath) throws -> FSPath {
         guard let generator = self.getGenerator(for: source) else {
-            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
-        }
-        return try generator.generatedFilePath(for: source)
-    }
-    public func generatedFilePath(for source: URL) throws -> URL {
-        guard let generator = self.getGenerator(for: source) else {
-            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.extension?.description ?? "")
         }
         return try generator.generatedFilePath(for: source)
     }
     
-    public func generatedFileExists(for source: String) throws -> Bool {
+    public func generatedFileExists(for source: FSPath) throws -> Bool {
         guard let generator = self.getGenerator(for: source) else {
-            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.extension?.description ?? "")
         }
         return try generator.generatedFileExists(for: source)
     }
-    public func generatedFileExists(for source: URL) throws -> Bool {
+    public func requiresSourceCodeGeneration(for source: FSPath) throws -> Bool {
         guard let generator = self.getGenerator(for: source) else {
-            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
-        }
-        return try generator.generatedFileExists(for: source)
-    }
-    public func requiresSourceCodeGeneration(for source: String) throws -> Bool {
-        guard let generator = self.getGenerator(for: source) else {
-            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
-        }
-        return try generator.requiresSourceCodeGeneration(for: source)
-    }
-    public func requiresSourceCodeGeneration(for source: URL) throws -> Bool {
-        guard let generator = self.getGenerator(for: source) else {
-            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.extension?.description ?? "")
         }
         return try generator.requiresSourceCodeGeneration(for: source)
     }
     
-    public func clean(folder: URL) throws {
+    public func clean(folder: FSPath,
+                      using fileManager: FileManager) throws {
         var errors: [Error] = []
         for generator in self.generators {
             do {
-                try generator.clean(folder: folder)
+                try generator.clean(folder: folder, using: fileManager)
             } catch {
                 errors.append(error)
             }
@@ -118,7 +101,7 @@ public class GroupGenerator: DynamicGenerator {
             throw DynamicGeneratorErrors.compoundError(errors)
         }
     }
-    public func canAddToXcodeProject(file: String) -> Bool {
+    public func canAddToXcodeProject(file: FSPath) -> Bool {
         guard let generator = self.getGenerator(for: file) else {
            return false
         }
@@ -128,42 +111,46 @@ public class GroupGenerator: DynamicGenerator {
     public func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource,
                                    inGroup group: XcodeGroup,
                                    havingTarget target: XcodeTarget,
-                                   includeGeneratedFilesInXcodeProject: Bool) throws -> Bool {
-        guard let generator = self.getGenerator(for: xcodeFile.path) else {
+                                   includeGeneratedFilesInXcodeProject: Bool,
+                                   using fileManager: FileManager) throws -> Bool {
+        guard let generator = self.getGenerator(for: xcodeFile) else {
             throw DynamicGeneratorErrors.noSupportedGenerator(ext: xcodeFile.pathExtension.lowercased())
         }
         self.console.printVerbose("\(type(of: self)).updateXcodeProject Found Generator \(type(of: generator)) for file '\(xcodeFile.path)'", object: self)
         return try generator.updateXcodeProject(xcodeFile: xcodeFile,
                                                 inGroup: group,
                                                 havingTarget: target,
-                                                includeGeneratedFilesInXcodeProject: includeGeneratedFilesInXcodeProject)
+                                                includeGeneratedFilesInXcodeProject: includeGeneratedFilesInXcodeProject,
+                                                using: fileManager)
     }
-    public func languageForXcode(file: String) -> String? {
+    public func languageForXcode(file: XcodeFileSystemURLResource) -> String? {
         guard let generator = self.getGenerator(for: file) else {
             return nil
         }
         return generator.languageForXcode(file: file)
     }
     
-    public func explicitFileTypeForXcode(file: String) -> XcodeFileType? {
+    public func explicitFileTypeForXcode(file: XcodeFileSystemURLResource) -> XcodeFileType? {
         guard let generator = self.getGenerator(for: file) else {
             return nil
         }
         return generator.explicitFileTypeForXcode(file: file)
     }
     
-    public func generateSource(from source: String,
-                               to destination: String,
+    public func generateSource(from source: FSPath,
+                               to destination: FSPath,
                                project: SwiftProject,
-                               lockGenFiles: Bool) throws {
+                               lockGenFiles: Bool,
+                               using fileManager: FileManager) throws {
         guard let generator = self.getGenerator(for: source) else {
-            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.pathExtension.lowercased())
+            throw DynamicGeneratorErrors.noSupportedGenerator(ext: source.extension?.description ?? "")
         }
         self.console.printVerbose("Generating source code from '\(source)' using \(type(of: generator)) generator", object: self)
         return try generator.generateSource(from: source,
                                             to: destination,
                                             project: project,
-                                            lockGenFiles: lockGenFiles)
+                                            lockGenFiles: lockGenFiles,
+                                            using: fileManager)
         
     }
 }
