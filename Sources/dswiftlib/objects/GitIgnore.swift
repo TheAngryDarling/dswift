@@ -7,6 +7,7 @@
 
 import Foundation
 import BasicCodableHelpers
+import PathHelpers
 
 /// Structure containing the contents of a gitignore file
 public final class GitIgnoreFile {
@@ -171,17 +172,22 @@ public final class GitIgnoreFile {
     
     /// Opens up a GitIgnore file at the given path
     /// - Parameter path: The path to the GitIgnore file to open
-    public init(atPath path: String) throws {
+    public init(at path: FSPath,
+                using fileManager: FileManager = .default) throws {
         self.sections = []
         self.items = []
-        try self.open(atPath: path)
+        try self.open(atPath: path,
+                      using: fileManager)
     }
     /// Creates a new structure of gitignore.
     /// If the path exists then it will be parsed
-    public func open(atPath path: String) throws {
-        let path = NSString(string: path).expandingTildeInPath
-        if FileManager.default.fileExists(atPath: path) {
-            let content = try String(contentsOfFile: path, foundEncoding: &self.encoding)
+    public func open(atPath path: FSPath,
+                     using fileManager: FileManager = .default) throws {
+        let path = path.expandingTilde
+        if path.exists(using: fileManager) {
+            let content = try String(contentsOf: path,
+                                     foundEncoding: &self.encoding,
+                                     using: fileManager)
             let lines = content.replacingOccurrences(of: "\r\n",
                                                      with: "\n")
                 .split(separator: "\n")
@@ -241,9 +247,15 @@ public final class GitIgnoreFile {
             }
         }
     }
+    
+    
     /// Save the file
-    public func save(to path: String) throws {
-        try self.contents.write(toFile: path, atomically: true, encoding: self.encoding)
+    public func save(to path: FSPath,
+                     using fileManager: FileManager = .default) throws {
+        try self.contents.write(to: path,
+                                atomically: true,
+                                encoding: self.encoding,
+                                using: fileManager)
     }
 }
 
