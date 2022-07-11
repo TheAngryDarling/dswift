@@ -1,0 +1,6 @@
+// dswift-tools-version: 1.0.21
+<%@include file="./subFiles/dswiftSubIncludeFile.txt" %>
+<%@include file="./subFiles/dswiftSubIncludeFile.txt" quiet="true" %>
+
+<%@include file="./basicDSwiftFile.txt" onlyOnce="true" %>
+<%@include file="./basicDSwiftFile.txt" onlyOnce="true" %>

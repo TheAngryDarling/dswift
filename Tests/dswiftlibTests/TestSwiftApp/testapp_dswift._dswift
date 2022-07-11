@@ -1,0 +1,28 @@
+// dswift-tools-version: 2.0.0
+<%@include file="included.file.dswiftInclude" %>
+<%@include folder="./includeFolder" extensionMapping="dswiftInclude:swift" %>
+<%@include package="https://github.com/TheAngryDarling/SwiftCodeTimer.git" from="1.0.1" packageName="CodeTimer" %>
+<%!!
+// Global block of code
+%>
+<%!
+// In class but out of generator method block of code
+%>
+<%
+// In generator block of code
+let variable = "Hello World"
+%>
+
+func dswiftCall() {
+    <%
+    let duration: TimeInterval = Timer.time {
+    %>
+    print("<%=variable%>")
+    print(includedFile())
+    print("<%=includeFolderFile()%>")
+    <% } %>
+    print("<%="Code Execution took \(duration)(s)"%>")
+}
+
+
+

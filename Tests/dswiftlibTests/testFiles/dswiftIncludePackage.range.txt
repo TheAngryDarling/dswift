@@ -1,0 +1,9 @@
+// dswift-tools-version: 2.0.0
+<%@include package="https://github.com/TheAngryDarling/SwiftCodeTimer.git" range="1.0.1..<2.0.0" packageName="CodeTimer" %>
+
+<%
+let duration: TimeInterval = Timer.time {
+    // Do some code here
+}
+%>
+<%="Code Execution took \(duration)(s)"%>

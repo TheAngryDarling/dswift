@@ -1,0 +1,4 @@
+// dswift-tools-version: 2.0.0
+<%@include folder="./includeFolder" extensionMapping="txt:swift" %>
+
+<%=customFunc()%>

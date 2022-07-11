@@ -1,0 +1,3 @@
+func includeFolderFile() -> String {
+    return "This is content from the included folder file"
+}

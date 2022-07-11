@@ -1,0 +1,11 @@
+<%!!
+// Global block of code
+%>
+<%!
+// In class but out of generator method block of code
+%>
+<%
+// In generator block of code
+let variable = "Hello World"
+%>
+<%=variable%>

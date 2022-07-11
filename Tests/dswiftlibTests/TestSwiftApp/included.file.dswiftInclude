@@ -1,0 +1,3 @@
+func includedFile() -> String {
+    return "This is content from the included file"
+}
