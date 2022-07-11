@@ -8,7 +8,9 @@
 import Foundation
 import SwiftPatches
 import RegEx
+import CodeTimer
 import CLICapture
+import PathHelpers
 
 fileprivate extension Array where Element == Dictionary<String, Array<Array<String>>> {
     // Convert providers to a more normalized structure
@@ -82,14 +84,14 @@ public struct PackageDescription {
             let c99name: String
             let module_type: String
             let name: String
-            let path: String
+            let path: FSPath
             let sources: [String]
             let type: String
         }
         /// Name of package
         let name: String
         /// Path of package
-        let path: String
+        let path: FSPath
         /// List of targets
         let targets: [Target]
     }
@@ -126,19 +128,37 @@ public struct PackageDescription {
         public let c99name: String
         public let module_type: String
         public let name: String
-        public let path: String
+        public let path: FSPath
         public let pkgConfig: String?
         public let providers: Dictionary<String, Array<String>>
         public let sources: [String]
         public let type: String
     }
     
-    fileprivate struct _Dependency: Codable {
+    fileprivate struct _Dependency: Decodable {
+        private enum CodingKeys: String, CodingKey {
+            case name
+            case url
+            case version
+            case path
+            case dependencies
+        }
         let name: String
         let url: String
         let version: String
-        let path: String
+        let path: FSPath?
         let dependencies: [_Dependency]
+        
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.name = try container.decode(String.self, forKey: .name)
+            self.url = try container.decode(String.self, forKey: .url)
+            self.version = try container.decode(String.self, forKey: .version)
+            let sPath = try container.decode(String.self, forKey: .path)
+            if !sPath.isEmpty { self.path = FSPath(sPath) }
+            else { self.path = nil }
+            self.dependencies = try container.decode([_Dependency].self, forKey: .dependencies)
+        }
     }
     /// Package Dependency
     public struct Dependency {
@@ -147,14 +167,14 @@ public struct PackageDescription {
         public let name: String
         public let url: String
         public let version: String
-        public let path: String
+        public let path: FSPath
         public let description: PackageDescription?
         public private(set) var dependencies: [Dependency]
         
         fileprivate init(_ dependency: _Dependency,
                          swiftCLI: CLICapture,
                          havingParent parent: Dependency? = nil) throws {
-            guard !dependency.path.isEmpty else {
+            guard let depPath = dependency.path else {
                 throw Error.dependencyMissingLocalPath(name: dependency.name,
                                                        url: dependency.url,
                                                        version: dependency.version)
@@ -163,20 +183,46 @@ public struct PackageDescription {
             self.name = dependency.name
             self.url = dependency.url
             self.version = dependency.version
-            self.path = dependency.path
-            print("Loading Dependency['\(dependency.name)'] description")
+            self.path = depPath
+            //print("Loading Dependency['\(dependency.name)'] description")
             self.description = try PackageDescription.init(swiftCLI: swiftCLI,
                                                       packagePath: self.path,
                                                       loadDependencies: false)
             
             self.dependencies = []
             
+            self.dependencies = try self.loadDependencies(from: dependency,
+                                                          swiftCLI: swiftCLI)
+        }
+        
+        private func loadDependencies(from dependency: _Dependency,
+                                      swiftCLI: CLICapture) throws -> [Dependency] {
+            var rtn: [Dependency] = []
+            var err: Swift.Error? = nil
+            
+            let opQueue = OperationQueue()
+            
             for dep in dependency.dependencies {
-                // Stop recursive dependancies
                 if !self.hasExistingDependency(dep) {
-                    self.dependencies.append(try Dependency(dep, swiftCLI: swiftCLI, havingParent: self))
+                    opQueue.addOperation {
+                        do {
+                            rtn.append(try Dependency(dep,
+                                                      swiftCLI: swiftCLI,
+                                                      havingParent: self))
+                        } catch {
+                            err = error
+                            opQueue.cancelAllOperations()
+                        }
+                    }
                 }
             }
+            opQueue.waitUntilAllOperationsAreFinished()
+            
+            if let e = err {
+                throw e
+            }
+            
+            return rtn
         }
         
         private func contains(_ dep: _Dependency) -> Bool {
@@ -204,7 +250,7 @@ public struct PackageDescription {
     ///Name of the Package
     public let name: String
     /// Path of the package
-    public let path: String
+    public let path: FSPath
     /// Package Config
     public let pkgConfig: String?
     /// Dependend Package Providers / Packages
@@ -256,47 +302,46 @@ public struct PackageDescription {
     ///   - packagePath: Path the the swift project (Folder only)
     ///   - loadDependencies: Indicator if should load list of package dependencies
     public init(swiftCLI: CLICapture,
-                packagePath: String = FileManager.default.currentDirectoryPath,
+                packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
                 loadDependencies: Bool) throws {
-        
-        if !FileManager.default.fileExists(atPath: packagePath) {
-            throw Error.missingPackageFolder(packagePath)
+        //print("Loading Package['\(packagePath.lastComponent)'] description")
+        if !packagePath.exists() {
+            throw Error.missingPackageFolder(packagePath.string)
         }
         
-        let packageFileURL = URL(fileURLWithPath: packagePath).appendingPathComponent("Package.swift")
-        if !FileManager.default.fileExists(atPath: packagePath) {
-            throw Error.missingPackageFile(packageFileURL.path)
+        let packageFilePath = packagePath.appendingComponent("Package.swift")
+        if !packageFilePath.exists() {
+            throw Error.missingPackageFile(packageFilePath.string)
         }
+        //print("Loading Package['\(packagePath.lastComponent)'] description json")
         
-        let pkgDescribeResponse = try swiftCLI.waitAndCaptureStringResponse(arguments: ["package", "describe", "--type", "json"],
-                                                                 currentDirectory: URL(fileURLWithPath: packagePath),
-                                                                            outputOptions: .captureAll)
+        let pkgDescribeResponse = try swiftCLI.waitAndCaptureDataResponse(arguments: ["package",
+                                                                                        "describe",
+                                                                                        "--type",
+                                                                                        "json"],
+                                                                          currentDirectory: packagePath.url,
+                                                                          outputOptions: .captureAll,
+                                                                          withDataType: Data.self)
+        
         if pkgDescribeResponse.exitStatusCode != 0 {
-            
-            if let describeStr = pkgDescribeResponse.output,
-                let m = try? describeStr.firstMatch(pattern: "requires a minimum Swift tools version of (?<minVer>(\\d+(\\.\\d+(\\.\\d+)?)?)) \\(currently (?<currentVer>\\d+(\\.\\d+(\\.\\d+)?)?)\\)"),
-                let match = m,
+            let output: String? = String(optData: pkgDescribeResponse.output,
+                                         encoding: .utf8)
+            //if let describeStr = pkgDescribeResponse.output,
+            if let describeStr = output,
+                let match = try! describeStr.firstMatch(pattern: "requires a minimum Swift tools version of (?<minVer>(\\d+(\\.\\d+(\\.\\d+)?)?)) \\(currently (?<currentVer>\\d+(\\.\\d+(\\.\\d+)?)?)\\)"),
+                //let match = m,
                 let minVer = match.value(withName: "minVer"),
                 let currentVer = match.value(withName: "currentVer") {
                 throw Error.minimumSwiftNotMet(current: currentVer, required: minVer)
             }
-            throw Error.unableToLoadDescription(packagePath, pkgDescribeResponse.output)
+            throw Error.unableToLoadDescription(packagePath.string,
+                                                output/*pkgDescribeResponse.output*/)
         }
         
-        var data: Data =  pkgDescribeResponse.out?.data(using: .utf8) ?? Data()
-        // Convert output to utf8 string
-        if let describeStr = pkgDescribeResponse.output {
-            
-            // Find the start of the json string {
-            if let r = describeStr.range(of: "{") {
-                // Create substring from the beginning of the json
-                let jsonStr = String(describeStr[r.lowerBound...])
-                // Convert back into data for decoding
-                data = jsonStr.data(using: .utf8)!
-            }
-        }
+        //print("Parson Package['\(packagePath.lastComponent)'] json")
+        var data: Data =  pkgDescribeResponse.out ?? Data()
         
-        
+        //print("Decoding Package['\(packagePath.lastComponent)'] json")
         let desc: Description!
         let decoder = JSONDecoder()
         do {
@@ -307,27 +352,27 @@ public struct PackageDescription {
                                                                 String(data: data,
                                                                        encoding: .utf8))
         }
+        //print("Loading Package['\(packagePath.lastComponent)'] dump")
+        let pkgDumpResponse = try swiftCLI.waitAndCaptureDataResponse(arguments: ["package",
+                                                                                  "dump-package"],
+                                                                      currentDirectory: packagePath.url,
+                                                                      outputOptions: .captureAll,
+                                                                      withDataType: Data.self)
         
-        let pkgDumpResponse = try swiftCLI.waitAndCaptureStringResponse(arguments: ["package", "dump-package"],
-                                                                        currentDirectory: URL(fileURLWithPath: packagePath),
-                                                                      outputOptions: .captureAll)
-        
+        data = pkgDumpResponse.out ?? Data()
         
         if pkgDumpResponse.exitStatusCode != 0 {
-            throw Error.unableToLoadDescription(packagePath,
-                                                pkgDumpResponse.output)
-        }
-        
-        data = pkgDumpResponse.out?.data(using: .utf8) ?? Data()
-        if var dtaStr = pkgDumpResponse.output {
-            if dtaStr.hasPrefix("unable to restore state from") {
-                dtaStr = dtaStr.split(separator: "\n").dropFirst().map(String.init).joined(separator: "\n")
-                if let newDta = dtaStr.data(using: .utf8) {
-                    data = newDta
-                }
+            let output = String(optData: pkgDumpResponse.output,
+                                encoding: .utf8)
+            
+            /// If output contains "unable to restore state from" then we're still good
+            if !(output?.contains("unable to restore state from") ?? false) {
+            
+                throw Error.unableToLoadDescription(packagePath.string,
+                                                    output)
             }
         }
-        
+        //print("Decoding Package['\(packagePath.lastComponent)'] dump")
         let dump: PackageDump!
         do {
             dump = try decoder.decode(PackageDump.self, from: data)
@@ -367,50 +412,81 @@ public struct PackageDescription {
             return
         }
         
-        let depTaskResponse = try swiftCLI.waitAndCaptureStringResponse(arguments: ["package", "show-dependencies", "--format", "json"],
-                                                                        currentDirectory: URL(fileURLWithPath: packagePath),
-                                                                      outputOptions: .captureAll)
+        let depTaskResponse = try swiftCLI.waitAndCaptureDataResponse(arguments: ["package",
+                                                                                    "show-dependencies",
+                                                                                    "--format",
+                                                                                    "json"],
+                                                                        currentDirectory: packagePath.url,
+                                                                        outputOptions: .captureAll,
+                                                                      withDataType: Data.self)
         
+        //print("Parsing Package['\(packagePath.lastComponent)'] dependencies")
+        data = depTaskResponse.out ?? Data()
         
-        
-        data = depTaskResponse.out?.data(using: .utf8) ?? Data()
-        
-        if var dtaStr = depTaskResponse.output {
-            if dtaStr.hasPrefix("unable to restore state from") {
-                dtaStr = dtaStr.split(separator: "\n").dropFirst().map(String.init).joined(separator: "\n")
-                if let newDta = dtaStr.data(using: .utf8) {
-                    data = newDta
-                }
+        if depTaskResponse.exitStatusCode != 0 {
+            let output = String(optData: depTaskResponse.output,
+                                encoding: .utf8)
+            
+            /// If output contains "unable to restore state from" then we're still good
+            if !(output?.contains("unable to restore state from") ?? false) {
+            
+                throw Error.unableToLoadDependencies(packagePath.string,
+                                                    output)
             }
         }
+        
+        
+        //print("Decoding Package['\(packagePath.lastComponent)'] dependencies")
+        
         let dep: _Dependency!
         do {
             dep = try decoder.decode(_Dependency.self, from: data)
         } catch {
             throw Error.unableToTransformDependenciesIntoObjects(error, data, String(data: data, encoding: .utf8))
         }
+        var deps: [Dependency] = []
+        var err: Swift.Error? = nil
         
-        self.dependencies = try dep.dependencies.map {
-            return try Dependency($0, swiftCLI: swiftCLI)
+        //print("Loading Package['\(packagePath.lastComponent)'] Dependency Details")
+        let opQueue = OperationQueue()
+        
+        for d in dep.dependencies {
+            do {
+                //print("Trying to load dependency '\(d.name)'")
+                deps.append(try Dependency(d, swiftCLI: swiftCLI))
+            } catch {
+                err = error
+                opQueue.cancelAllOperations()
+            }
         }
+        opQueue.waitUntilAllOperationsAreFinished()
+        if let e = err {
+            throw e
+        }
+        self.dependencies = deps
+         
     }
+    
+    
     /// Create new Package Description
     /// - Parameters:
     ///   - swiftPath: Path to the swift executable, (Default: default location of swift)
     ///   - packagePath: Path the the swift project (Folder only)
     ///   - loadDependencies: Indicator if should load list of package dependencies
-    public init(swiftPath: String = DSwiftSettings.defaultSwiftPath,
-                packagePath: String = FileManager.default.currentDirectoryPath,
-                loadDependencies: Bool) throws {
-        if !FileManager.default.fileExists(atPath: swiftPath) {
-            throw Error.missingSwift(swiftPath)
+    ///   - fileManager: The file manager to use when accessing file information
+    public init(swiftPath: FSPath = DSwiftSettings.defaultSwiftPath,
+                packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
+                loadDependencies: Bool,
+                using fileManager: FileManager = .default) throws {
+        if !swiftPath.exists(using: fileManager) {
+            throw Error.missingSwift(swiftPath.string)
         }
         
         let swiftCLI = CLICapture.init(outputLock: Console.sharedOutputLock,
-                                       createProcess: SwiftCLIWrapper.newSwiftProcessMethod(swiftURL: URL(fileURLWithPath: swiftPath)))
+                                       createProcess: SwiftCLIWrapper.newSwiftProcessMethod(swiftURL: swiftPath.url))
         
         try self.init(swiftCLI: swiftCLI,
-                      packagePath: packagePath,
+                      packagePath: FSPath(packagePath.string),
                       loadDependencies: loadDependencies)
         
     }
