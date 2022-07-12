@@ -8,9 +8,19 @@
 import Foundation
 import SwiftPatches
 
-extension String: Error { }
+//extension String: Error { }
 
 internal extension String {
+    /// Optional initializer that taks an optional Data object
+    /// This is a helper init do simplify conditional if let statements
+    /// and not have to check of data exists or not first
+    init?(optData data: Data?, encoding: String.Encoding) {
+        guard let dta = data else { return nil }
+        guard let s = String(data: dta, encoding: encoding) else {
+            return nil
+        }
+        self = s
+    }
     
     /// Provides a complate range of the given string
     var completeRange: Range<String.Index> {
@@ -181,21 +191,6 @@ internal extension String {
         return NSString(string: self).resolvingSymlinksInPath
     }
 }
-/*
-internal extension String {
-    #if swift(>=4.1)
-    func adjust(_ range: Range<String.Index>,
-                offsetBy offset: Int) -> Range<String.Index> {
-        return self.index(range.lowerBound, offsetBy: offset)..<self.index(range.upperBound, offsetBy: offset)
-    }
-    #else
-    func adjust(_ range: Range<String.Index>,
-                offsetBy offset: String.IndexDistance) -> Range<String.Index> {
-        return self.index(range.lowerBound, offsetBy: offset)..<self.index(range.upperBound, offsetBy: offset)
-    }
-    #endif
-}
-*/
 // MARK: - Distance Helpers
 internal extension String {
     #if swift(>=4.1)
