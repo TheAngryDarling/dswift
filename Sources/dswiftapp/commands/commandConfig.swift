@@ -7,29 +7,35 @@
 
 import Foundation
 import XcodeProj
+import dswiftlib
+import CLIWrapper
 
 extension Commands {
     // swiftlint:disable:next line_length
-    private static let defaultConfig: String = """
+    public static let defaultConfig: String = """
 {
     // (Optional, If not set \(DSwiftSettings.defaultSwiftPath) is used) The default swift path to use unless specificed in the command line
     // "swiftPath": "\(DSwiftSettings.defaultSwiftPath)",
 
-    // Sort files and folders within the project
-    // "none":  No sorting
-    // "sorted": Sort by name, folders first. Except for root, the root has files before folders and folders are in a special order, and Package.swift will always be at the top
+    /*
+    Sort files and folders within the project
+    "none":  No sorting
+    "sorted": Sort by name, folders first. Except for root, the root has files before folders and folders are in a special order, and Package.swift will always be at the top
+    */
     "xcodeResourceSorting": "none",
 
-    // Auto create a license file for the project
-    // "none": No license
-    // "apache2_0": Apache License 2.0
-    // "gnuGPL3_0": GNU GPLv3
-    // "gnuAGPL3_0": GNU AGPLv3
-    // "gnuLGPL3_0": GNU LGPLv3
-    // "mozilla2_0": Mozilla Public License 2.0
-    // "mit": MIT License
-    // "unlicense": The Unlicense
-    // address to file (Local path address, or web address)
+    /*
+    Auto create a license file for the project
+        "none": No license
+        "apache2_0": Apache License 2.0
+        "gnuGPL3_0": GNU GPLv3
+        "gnuAGPL3_0": GNU AGPLv3
+        "gnuLGPL3_0": GNU LGPLv3
+        "mozilla2_0": Mozilla Public License 2.0
+        "mit": MIT License
+        "unlicense": The Unlicense
+        address to file (Local path address, or web address)
+    */
     "license": "none",
     
     // The path the the specific read me files.  If set, and the file exists, it will be copied into the project replacing the standard one
@@ -45,9 +51,9 @@ extension Commands {
     //      "default": "{path to read me file for all other project types}" OR "generated",
     // },
 
-    // Author Name.  Used when generated README.md as the author name
-    // If author name is not set, the application wil try and use env variable REAL_DISPLAY_NAME if set otherwise use the current use display name from the system
-    // "authorName": "YOUR NAME HERE",
+    # Author Name.  Used when generated README.md as the author name
+    # If author name is not set, the application wil try and use env variable REAL_DISPLAY_NAME if set otherwise use the current use display name from the system
+    # "authorName": "YOUR NAME HERE",
 
     // Provides an indicator of when to add the build rules to the Xcode Project.
     //      always: Even if there are no custom build files
@@ -101,7 +107,7 @@ extension Commands {
     //          {
     //              "name": "Section Name",
     //              "description": [
-    //                  "Description array seperated by lines",
+    //                  "Description array separated by lines",
     //              ],
     //              "items": [
     //                  "Rule",
@@ -137,7 +143,7 @@ extension Commands {
     //          {
     //              "name": "Section Name",
     //              "description": [
-    //                  "Description array seperated by lines",
+    //                  "Description array separated by lines",
     //              ],
     //              "items": [
     //                  "Rule",
@@ -156,26 +162,26 @@ extension Commands {
 }
 """
     /// Method for setting up default dswift configuration
-    static func commandConfig(_ args: [String]) -> Int32 {
-        let url = URL(fileURLWithPath: NSString(string: dswiftSettingsFilePath).expandingTildeInPath).standardizedFileURL.resolvingSymlinksInPath()
-        do {
-            guard !FileManager.default.fileExists(atPath: url.path) else {
-                print("File '\(dswiftSettingsFilePath)' already exists")
-                return 0
-            }
-
-            var configStr = defaultConfig
-            if let userDisplayName = XcodeProjectBuilders.UserDetails().displayName, userDisplayName != "root" {
-                configStr = configStr.replacingOccurrences(of: "// \"authorName\": \"YOUR NAME HERE\",",
-                                                           with: "\"authorName\": \"\(userDisplayName)\",")
-            }
-            try configStr.write(to: url, atomically: true, encoding: .utf8)
-            
+    //public func commandConfig(_ args: [String]) -> Int32 {
+    public func commandConfig(_ parent: CLICommandGroup,
+                              _ argumentStartingAt: Int,
+                              _ fullArguments: [String],
+                              _ environment: [String: String]?,
+                              _ currentDirectory: URL?,
+                              _ standardInput: Any?) throws -> Int32 {
+        let url = URL(fileURLWithPath: NSString(string: dSwiftSettingsFilePath).expandingTildeInPath).standardizedFileURL.resolvingSymlinksInPath()
+        guard !FileManager.default.fileExists(atPath: url.path) else {
+            self.console.print("File '\(dSwiftSettingsFilePath)' already exists", object: self)
             return 0
-            
-        } catch {
-            errPrint("An error has occured:\n\(error)")
-            return 1
         }
+
+        var configStr = Commands.defaultConfig
+        if let userDisplayName = XcodeProjectBuilders.UserDetails().displayName, userDisplayName != "root" {
+            configStr = configStr.replacingOccurrences(of: "// \"authorName\": \"YOUR NAME HERE\",",
+                                                       with: "\"authorName\": \"\(userDisplayName)\",")
+        }
+        try configStr.write(to: url, atomically: true, encoding: .utf8)
+        
+        return 0
     }
 }
