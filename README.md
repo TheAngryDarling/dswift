@@ -36,7 +36,7 @@ Supported bocks:
     * **extensionMapping** (\* Optional): A ';' separated array of file exetension mappings. Main use is to map other extensions into swift files so they can be used in the include but are not direclty compiled within the main project
     * **filter** (\* Optional): Regular Expression pattern used to match the source path to determin if the source resource should be copied or not
     * **quiet** (\* Optional): Indicator if should hide include indicator comments within generated files
-* <%@include package="https://github.com/... .git" from="1.0.0" packageName="name" packageNames="name1,name2" quiet="true|false" %>: Include Package - Used to include a package dependancy to the compiling of the dswift file.  *Note:  Unlike the other includes, the package include does not check changes to the package when determining if a dswift file needs to be re-compiled.  Also, the package will be re-downloaded every time the dswift file needs to be compiled.*
+* <%@include package="https://github.com/... .git" from="1.0.0" packageName="name" packageNames="name1,name2" quiet="true|false" %>: Include Package - Used to include a package dependency to the compiling of the dswift file.  *Note:  Unlike the other includes, the package include does not check changes to the package when determining if a dswift file needs to be re-compiled.  Also, the package will be re-downloaded every time the dswift file needs to be compiled.*
     * **package** (\* Required): The URL to the package repository
     * **from** (\* Required): The version to use
     * **packageName** (\* Optional, Must use this or packageNames): The name of the package to import
