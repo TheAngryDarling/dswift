@@ -11,6 +11,7 @@ import VersionKit
 import XcodeProj
 import RegEx
 import CLIWrapper
+import struct CLICapture.CLIStackTrace
 import PathHelpers
 
 public enum DSwiftApp {
@@ -112,7 +113,9 @@ public enum DSwiftApp {
                              arguments: [String],
                              environment: [String: String]?,
                              currentDirectory: URL?,
-                             withMessage message: String? = nil) throws -> Int32 {
+                             withMessage message: String? = nil,
+                             userInfo: [String: Any],
+                             stackTrace: CLIStackTrace) throws -> Int32 {
             if let m = message {
                 console.print(m)
             }
@@ -145,7 +148,9 @@ public enum DSwiftApp {
             
             
             let resp = try parent.cli.waitAndCaptureStringResponse(arguments: arguments,
-                                                                   outputOptions: .captureAll)
+                                                                   outputOptions: .captureAll,
+                                                                   userInfo: userInfo,
+                                                                   stackTrace: stackTrace.stacking())
             
             var workingOutput = resp.output ?? ""
             func replacing(word: String,
@@ -263,13 +268,17 @@ public enum DSwiftApp {
                      _ arguments: [String],
                      _ environment: [String: String]?,
                      _ currentDirectory: URL?,
-                     _ standardInput: Any?) throws -> Int32 in
+                     _ standardInput: Any?,
+                     _ userInfo: [String: Any],
+                     _ stackTrace: CLIStackTrace) throws -> Int32 in
                     
                     return try swiftHelpAction(parent: parent,
                                                argumentStartingAt: argumentStartingAt,
                                                arguments: arguments,
                                                environment: environment,
-                                               currentDirectory: currentDirectory)
+                                               currentDirectory: currentDirectory,
+                                               userInfo: userInfo,
+                                               stackTrace: stackTrace.stacking())
                 }
                 
             }

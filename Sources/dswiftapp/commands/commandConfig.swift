@@ -9,6 +9,7 @@ import Foundation
 import XcodeProj
 import dswiftlib
 import CLIWrapper
+import struct CLICapture.CLIStackTrace
 
 extension Commands {
     // swiftlint:disable:next line_length
@@ -168,7 +169,9 @@ extension Commands {
                               _ fullArguments: [String],
                               _ environment: [String: String]?,
                               _ currentDirectory: URL?,
-                              _ standardInput: Any?) throws -> Int32 {
+                              _ standardInput: Any?,
+                              _ userInfo: [String: Any],
+                              _ stackTrace: CLIStackTrace) throws -> Int32 {
         let url = URL(fileURLWithPath: NSString(string: dSwiftSettingsFilePath).expandingTildeInPath).standardizedFileURL.resolvingSymlinksInPath()
         guard !FileManager.default.fileExists(atPath: url.path) else {
             self.console.print("File '\(dSwiftSettingsFilePath)' already exists", object: self)
