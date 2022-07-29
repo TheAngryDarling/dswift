@@ -1209,9 +1209,13 @@ I hope that this works
                                       _ arguments: [String],
                                       _ environment: [String: String]?,
                                       _ currentDirectory: URL?,
-                                      _ standardInput: Any?) throws -> Int32 {
+                                      _ standardInput: Any?,
+                                      _ userInfo: [String: Any],
+                                      _ stackTrace: CLIStackTrace) throws -> Int32 {
             let resp = try parent.cli.waitAndCaptureStringResponse(arguments: arguments,
-                                                                   outputOptions: .captureAll)
+                                                                   outputOptions: .captureAll,
+                                                                   userInfo: userInfo,
+                                                                   stackTrace: stackTrace.stacking())
             
             var workingOutput = resp.output ?? ""
             func replacing(word: String,

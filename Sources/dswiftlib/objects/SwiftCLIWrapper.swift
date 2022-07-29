@@ -11,6 +11,7 @@ import Dispatch
 import RegEx
 import VersionKit
 import CLIWrapper
+import struct CLICapture.CLIStackTrace
 import PathHelpers
 
 
@@ -45,13 +46,17 @@ public class SwiftCLIWrapper: CLIWrapper {
                      arguments: [String],
                      environment: [String: String]?,
                      currentDirectory: URL?,
-                     withMessage message: String?) throws -> Int32 {
+                     withMessage message: String?,
+                     userInfo: [String: Any],
+                     stackTrace: CLIStackTrace) throws -> Int32 {
             return try self.handler(parent,
                                     argumentStartingAt,
                                     arguments,
                                     environment,
                                     currentDirectory,
-                                    message)
+                                    message,
+                                    userInfo,
+                                    stackTrace)
             
         }
     }
@@ -103,16 +108,18 @@ public class SwiftCLIWrapper: CLIWrapper {
     public static func newSwiftProcessMethod(swiftURL: URL) -> (_ arguments: [String],
                                                                 _ environment: [String: String]?,
                                                                 _ currentDirectory: URL?,
-                                                                _ standardInput: Any?) -> Process {
+                                                                _ standardInput: Any?,
+                                                                _ userInfo: [String: Any],
+                                                                _ stackTrace: CLIStackTrace) -> Process {
         
         return {
             (_ arguments: [String],
              _ environment: [String: String]?,
              _ currentDirectory: URL?,
-             _ standardInput: Any?) -> Process in
+             _ standardInput: Any?,
+             _ userInfo: [String: Any],
+             _ stackTrace: CLIStackTrace) -> Process in
             
-            
-            //print("Creating Swift Process @'\(([swiftURL.path] + arguments).joined(separator: " "))')")
             let rtn = Process()
             rtn.executable = swiftURL
             rtn.arguments = arguments
