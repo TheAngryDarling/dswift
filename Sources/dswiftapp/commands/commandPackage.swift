@@ -18,14 +18,17 @@ extension Commands {
     
     /// Clean any swift files build from dswift
     public func cleanResetDSwiftBuilds(_ parent: CLICommandGroup,
-                                        _ argumentStartingAt: Int,
-                                        _ arguments: inout [String],
-                                        _ environment: [String: String]?,
-                                        _ currentDirectory: URL?) throws -> Int32 {
+                                       _ argumentStartingAt: Int,
+                                       _ arguments: inout [String],
+                                       _ environment: [String: String]?,
+                                       _ currentDirectory: URL?,
+                                       _ userInfo: [String: Any],
+                                       _ stackTrace: CLIStackTrace) throws -> Int32 {
         self.console.printVerbose("Loading package details", object: self)
         let packageDetails = try PackageDescription(swiftPath: settings.swiftPath,
                                                     packagePath: self.currentProjectPath,
-                                                    loadDependencies: false)
+                                                    loadDependencies: false,
+                                                    console: self.console)
         self.console.printVerbose("Package details loaded", object: self)
         
         for t in packageDetails.targets {
@@ -45,7 +48,9 @@ extension Commands {
                                      _ arguments: [String],
                                      _ environment: [String: String]?,
                                      _ currentDirectory: URL?,
-                                     _ response: CLICapturedStringResponse) throws -> Int32 {
+                                     _ response: CLICapturedStringResponse,
+                                     _ userInfo: [String: Any],
+                                     _ stackTrace: CLIStackTrace) throws -> Int32 {
         let retCode = response.exitStatusCode
         guard settings.regenerateXcodeProject else { return retCode }
         guard retCode == 0 else { return retCode }
@@ -66,7 +71,8 @@ extension Commands {
                 // Get the package name
                 let pkgDetails = try PackageDescription(swiftPath: settings.swiftPath,
                                                         packagePath: self.currentProjectPath,
-                                                        loadDependencies: false)
+                                                        loadDependencies: false,
+                                                        console: self.console)
                     
                     
                 let pkgName = pkgDetails.name
@@ -134,6 +140,8 @@ extension Commands {
                                            _ arguments: [String],
                                            _ environment: [String: String]?,
                                            _ currentDirectory: URL?,
+                                           _ userInfo: [String: Any],
+                                           _ stackTrace: CLIStackTrace,
                                            _ exitStatusCode: Int32) throws -> Int32 {
         guard exitStatusCode == 0 else { return exitStatusCode }
         guard (arguments.firstIndex(of: "--help") == nil &&
@@ -143,7 +151,8 @@ extension Commands {
         self.console.printVerbose("Loading package details", object: self)
         let packageDetails = try PackageDescription(swiftPath: settings.swiftPath,
                                                     packagePath: self.currentProjectPath,
-                                                    loadDependencies: false)
+                                                    loadDependencies: false,
+                                                    console: self.console)
         self.console.printVerbose("Package details loaded", object: self)
         
         let packagePath = self.currentProjectPath.resolvingSymlinks
@@ -377,7 +386,9 @@ extension Commands {
                                            _ arguments: inout [String],
                                            _ environment: [String: String]?,
                                            _ currentDirectory: URL?,
-                                           _ storage: inout [String: Any]?) throws -> Int32 {
+                                           _ storage: inout [String: Any]?,
+                                           _ userInfo: [String: Any],
+                                           _ stackTrace: CLIStackTrace) throws -> Int32 {
         
         let noDSwift = arguments.contains(where: { $0.lowercased() == "--nodswift" })
         if noDSwift { arguments.removeAll(where: { $0.lowercased() == "--nodswift" }) }
@@ -394,6 +405,8 @@ extension Commands {
                                             _ environment: [String: String]?,
                                             _ currentDirectory: URL?,
                                             _ storage: [String: Any]?,
+                                            _ userInfo: [String: Any],
+                                            _ stackTrace: CLIStackTrace,
                                             _ exitStatusCode: Int32) throws -> Int32 {
         let noDSwift = ((storage ?? [:])["noDswift"] as? Bool) ?? false
         var exitStatusCode = exitStatusCode
@@ -473,11 +486,13 @@ extension Commands {
     }
     
     public func commandCompletionToolsBash(_ parent: CLICommandGroup,
-                                       _ argumentStartingAt: Int,
-                                       _ arguments: [String],
-                                       _ environment: [String: String]?,
-                                       _ currentDirectory: URL?,
-                                       _ response: CLICapturedStringResponse) throws -> Int32 {
+                                           _ argumentStartingAt: Int,
+                                           _ arguments: [String],
+                                           _ environment: [String: String]?,
+                                           _ currentDirectory: URL?,
+                                           _ response: CLICapturedStringResponse,
+                                           _ userInfo: [String: Any],
+                                           _ stackTrace: CLIStackTrace) throws -> Int32 {
         guard var out = response.output else {
             return 1
         }
@@ -580,7 +595,9 @@ extension Commands {
                                        _ arguments: [String],
                                        _ environment: [String: String]?,
                                        _ currentDirectory: URL?,
-                                       _ response: CLICapturedStringResponse) throws -> Int32 {
+                                       _ response: CLICapturedStringResponse,
+                                          _ userInfo: [String: Any],
+                                          _ stackTrace: CLIStackTrace) throws -> Int32 {
         guard var out = response.output else {
             return 1
         }
@@ -593,11 +610,13 @@ extension Commands {
     }
     
     public func commandCompletionToolsFish(_ parent: CLICommandGroup,
-                                       _ argumentStartingAt: Int,
-                                       _ arguments: [String],
-                                       _ environment: [String: String]?,
-                                       _ currentDirectory: URL?,
-                                       _ response: CLICapturedStringResponse) throws -> Int32 {
+                                           _ argumentStartingAt: Int,
+                                           _ arguments: [String],
+                                           _ environment: [String: String]?,
+                                           _ currentDirectory: URL?,
+                                           _ response: CLICapturedStringResponse,
+                                           _ userInfo: [String: Any],
+                                           _ stackTrace: CLIStackTrace) throws -> Int32 {
         guard var out = response.output else {
             return 1
         }
@@ -615,7 +634,9 @@ extension Commands {
                                                 _ arguments: [String],
                                                 _ environment: [String: String]?,
                                                 _ currentDirectory: URL?,
-                                                _ response: CLICapturedStringResponse) throws -> Int32 {
+                                                _ response: CLICapturedStringResponse,
+                                                _ userInfo: [String: Any],
+                                                _ stackTrace: CLIStackTrace) throws -> Int32 {
         
         if arguments.contains(where: { return $0.lowercased() == "bash" } ) {
             
@@ -624,7 +645,9 @@ extension Commands {
                                                   arguments,
                                                   environment,
                                                   currentDirectory,
-                                                  response)
+                                                  response,
+                                                  userInfo,
+                                                  stackTrace.stacking())
             
                
         } else if arguments.contains(where: { return $0.lowercased() == "zsh" } ) {
@@ -633,13 +656,17 @@ extension Commands {
                                                  arguments,
                                                  environment,
                                                  currentDirectory,
-                                                 response)
+                                                 response,
+                                                 userInfo,
+                                                 stackTrace.stacking())
         } else {
             return try parent.executeHelp(argumentStartingAt: argumentStartingAt,
                                           arguments: arguments,
                                           environment: environment,
                                           currentDirectory: currentDirectory,
-                                          withMessage: "Missing flavour 'bash' or 'zsh'")
+                                          withMessage: "Missing flavour 'bash' or 'zsh'",
+                                          userInfo: userInfo,
+                                          stackTrace: stackTrace.stacking())
         }
     }
     
@@ -650,7 +677,9 @@ extension Commands {
                                                 _ currentDirectory: URL?,
                                                  genScriptCommand: String,
                                                  bashFlavour: String,
-                                                 zshFlavour: String) throws -> Int32 {
+                                                 zshFlavour: String,
+                                                 userInfo: [String: Any],
+                                                 stackTrace: CLIStackTrace) throws -> Int32 {
         if arguments.last == "bash"  {
             var bashProfile: StringFile
             do {
@@ -702,7 +731,9 @@ extension Commands {
                                                                                      zshFlavour],
                                                                          environment: environment,
                                                                          currentDirectory: currentDirectory,
-                                                                         outputOptions: .captureAll)
+                                                                         outputOptions: .captureAll,
+                                                                         userInfo: userInfo,
+                                                                         stackTrace: stackTrace.stacking())
             
             guard let script = scriptResp.output else {
                 self.console.printError("Unable to retrieve zsh completeion script")
@@ -823,7 +854,9 @@ extension Commands {
                                                                    _ arguments: [String],
                                                                    _ environment: [String: String]?,
                                                                    _ currentDirectory: URL?,
-                                                                   _ standardInput: Any?) throws -> Int32 {
+                                                                   _ standardInput: Any?,
+                                                                   _ userInfo: [String: Any],
+                                                                   _ stackTrace: CLIStackTrace) throws -> Int32 {
         
         return try commandPackageInstallAutoScript(parent,
                                                    argumentStartingAt,
@@ -832,7 +865,9 @@ extension Commands {
                                                    currentDirectory,
                                                    genScriptCommand: "generate-completion-script",
                                                    bashFlavour: "bash",
-                                                   zshFlavour: "zsh")
+                                                   zshFlavour: "zsh",
+                                                   userInfo: userInfo,
+                                                   stackTrace: stackTrace.stacking())
         
     }
     
@@ -842,7 +877,9 @@ extension Commands {
                                                               _ arguments: [String],
                                                               _ environment: [String: String]?,
                                                               _ currentDirectory: URL?,
-                                                              _ standardInput: Any?) throws -> Int32 {
+                                                              _ standardInput: Any?,
+                                                              _ userInfo: [String: Any],
+                                                              _ stackTrace: CLIStackTrace) throws -> Int32 {
         
         return try commandPackageInstallAutoScript(parent,
                                                    argumentStartingAt,
@@ -851,7 +888,9 @@ extension Commands {
                                                    currentDirectory,
                                                    genScriptCommand: "completion-tool",
                                                    bashFlavour: "generate-bash-script",
-                                                   zshFlavour: "generate-zsh-script")
+                                                   zshFlavour: "generate-zsh-script",
+                                                   userInfo: userInfo,
+                                                   stackTrace: stackTrace.stacking())
         
     }
 }

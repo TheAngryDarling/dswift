@@ -266,7 +266,9 @@ extension Commands {
                                    _ argumentStartingAt: Int,
                                    _ arguments: inout [String],
                                    _ environment: [String: String]?,
-                                   _ currentDirectory: URL?) throws -> Int32 {
+                                   _ currentDirectory: URL?,
+                                   _ userInfo: [String: Any],
+                                   _ stackTrace: CLIStackTrace) throws -> Int32 {
         
         let command = arguments[argumentStartingAt-1].lowercased()
         var isRebuild = false
@@ -306,7 +308,8 @@ extension Commands {
             do {
                 pkgDetails = try PackageDescription(swiftPath: settings.swiftPath,
                                                     packagePath: self.currentProjectPath,
-                                                    loadDependencies: true)
+                                                    loadDependencies: true,
+                                                    console: console)
             } catch PackageDescription.Error.dependencyMissingLocalPath(name: let name, url: let url, let version) {
                 self.console.printVerbose("WARING: Missing dependency locally.  Trying package update to resolve all missing dependencies.", object: self)
                 pkgDetailsTryCount += 1
@@ -314,9 +317,15 @@ extension Commands {
                 missingPackageURL = url
                 missingPackageVersion = version
                 
-                // try updatig the package to resolve missing dependencies
+                // try updating the package to resolve missing dependencies
                 _ = try parent.execute(["package", "update"])
                 //_ = self.commandSwift(["package", "update"])
+            } catch PackageDescription.Error.unsupportedPackageSchemaVersion(schemaPath: let path,
+                                                                             version: let ver) {
+                self.console.printVerbose("Unsupported Package Schema version \(ver)")
+                try? FileManager.default.removeItem(atPath: path)
+                pkgDetailsTryCount += 1
+                _ = try parent.execute(["package", "update"])
             }
         } while (pkgDetails == nil && pkgDetailsTryCount < 2)
         
@@ -423,7 +432,9 @@ extension Commands {
                                         _ arguments: [String],
                                         _ environment: [String: String]?,
                                         _ currentDirectory: URL?,
-                                        _ standardInput: Any?) throws -> Int32 {
+                                        _ standardInput: Any?,
+                                        _ userInfo: [String: Any],
+                                        _ stackTrace: CLIStackTrace) throws -> Int32 {
         
         var currentDir = FSPath((currentDirectory ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)).path)
         
@@ -438,7 +449,8 @@ extension Commands {
            self.console.printVerbose("Loading package details", object: self)
            let packageDetails = try PackageDescription(swiftPath: settings.swiftPath,
                                                        packagePath: currentDir,
-                                                       loadDependencies: false)
+                                                       loadDependencies: false,
+                                                       console: self.console)
            self.console.printVerbose("Package details loaded", object: self)
            
            let packagePath = packageDetails.path
