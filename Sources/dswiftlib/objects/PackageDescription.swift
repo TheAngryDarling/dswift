@@ -75,6 +75,7 @@ public struct PackageDescription {
         case unableToTransformPackageDumpIntoObjects(Swift.Error, Data, String?)
         case unableToTransformDependenciesIntoObjects(Swift.Error, Data, String?)
         case minimumSwiftNotMet(current: String, required: String)
+        case unsupportedPackageSchemaVersion(schemaPath: String, version: String)
         case dependencyMissingLocalPath(name: String, url: String, version: String)
     }
     /// Internal Package Descriptions
@@ -173,7 +174,9 @@ public struct PackageDescription {
         
         fileprivate init(_ dependency: _Dependency,
                          swiftCLI: CLICapture,
-                         havingParent parent: Dependency? = nil) throws {
+                         havingParent parent: Dependency? = nil,
+                         preloadedPackageDescriptions: inout [PackageDescription],
+                         console: Console? = nil) throws {
             guard let depPath = dependency.path else {
                 throw Error.dependencyMissingLocalPath(name: dependency.name,
                                                        url: dependency.url,
@@ -184,39 +187,51 @@ public struct PackageDescription {
             self.url = dependency.url
             self.version = dependency.version
             self.path = depPath
-            //print("Loading Dependency['\(dependency.name)'] description")
-            self.description = try PackageDescription.init(swiftCLI: swiftCLI,
-                                                      packagePath: self.path,
-                                                      loadDependencies: false)
-            
-            self.dependencies = []
-            
-            self.dependencies = try self.loadDependencies(from: dependency,
-                                                          swiftCLI: swiftCLI)
+            if let d = preloadedPackageDescriptions.first(where: { return $0.path == depPath }) {
+                self.description = d
+            } else {
+                //print("Loading Dependency['\(dependency.name)'] description")
+                self.description = try PackageDescription.init(swiftCLI: swiftCLI,
+                                                               packagePath: self.path,
+                                                               loadDependencies: false,
+                                                               preloadedPackageDescriptions: &preloadedPackageDescriptions,
+                                                               console: console)
+                }
+                
+                self.dependencies = []
+                
+                self.dependencies = try self.loadDependencies(from: dependency,
+                                                              preloadedPackageDescriptions: &preloadedPackageDescriptions,
+                                                              swiftCLI: swiftCLI,
+                                                              console: console)
         }
         
         private func loadDependencies(from dependency: _Dependency,
-                                      swiftCLI: CLICapture) throws -> [Dependency] {
+                                      preloadedPackageDescriptions: inout [PackageDescription],
+                                      swiftCLI: CLICapture,
+                                      console: Console? = nil) throws -> [Dependency] {
             var rtn: [Dependency] = []
             var err: Swift.Error? = nil
             
-            let opQueue = OperationQueue()
+            //let opQueue = OperationQueue()
             
             for dep in dependency.dependencies {
                 if !self.hasExistingDependency(dep) {
-                    opQueue.addOperation {
+                    //opQueue.addOperation {
                         do {
                             rtn.append(try Dependency(dep,
                                                       swiftCLI: swiftCLI,
-                                                      havingParent: self))
+                                                      havingParent: self,
+                                                      preloadedPackageDescriptions: &preloadedPackageDescriptions,
+                                                      console: console))
                         } catch {
                             err = error
-                            opQueue.cancelAllOperations()
+                            //opQueue.cancelAllOperations()
                         }
-                    }
+                   // }
                 }
             }
-            opQueue.waitUntilAllOperationsAreFinished()
+            //opQueue.waitUntilAllOperationsAreFinished()
             
             if let e = err {
                 throw e
@@ -282,8 +297,8 @@ public struct PackageDescription {
             }
         }
         
-        for dependancy in (self.dependencies ?? []) {
-            guard let description = dependancy.description else { continue }
+        for dependency in (self.dependencies ?? []) {
+            guard let description = dependency.description else { continue }
             for (manager, packages) in description.uniqueProviders {
                 guard let ary = rtn[manager] else {
                     rtn[manager] = packages.sorted()
@@ -301,10 +316,14 @@ public struct PackageDescription {
     ///   - swiftCLI: CLI Capture object used to execute Swift commands
     ///   - packagePath: Path the the swift project (Folder only)
     ///   - loadDependencies: Indicator if should load list of package dependencies
+    ///   - preloadedPackageDescriptions: An array of already loaded package dependencies
+    ///   - console: Console to write detailed loading information
     public init(swiftCLI: CLICapture,
                 packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
-                loadDependencies: Bool) throws {
-        //print("Loading Package['\(packagePath.lastComponent)'] description")
+                loadDependencies: Bool,
+                preloadedPackageDescriptions: inout [PackageDescription],
+                console: Console? = nil) throws {
+        console?.printVerbose("Loading Package['\(packagePath.lastComponent)'] description")
         if !packagePath.exists() {
             throw Error.missingPackageFolder(packagePath.string)
         }
@@ -313,46 +332,95 @@ public struct PackageDescription {
         if !packageFilePath.exists() {
             throw Error.missingPackageFile(packageFilePath.string)
         }
-        //print("Loading Package['\(packagePath.lastComponent)'] description json")
-        
-        let pkgDescribeResponse = try swiftCLI.waitAndCaptureDataResponse(arguments: ["package",
-                                                                                        "describe",
-                                                                                        "--type",
-                                                                                        "json"],
-                                                                          currentDirectory: packagePath.url,
-                                                                          outputOptions: .captureAll,
-                                                                          withDataType: Data.self)
-        
-        if pkgDescribeResponse.exitStatusCode != 0 {
-            let output: String? = String(optData: pkgDescribeResponse.output,
-                                         encoding: .utf8)
-            //if let describeStr = pkgDescribeResponse.output,
-            if let describeStr = output,
-                let match = try! describeStr.firstMatch(pattern: "requires a minimum Swift tools version of (?<minVer>(\\d+(\\.\\d+(\\.\\d+)?)?)) \\(currently (?<currentVer>\\d+(\\.\\d+(\\.\\d+)?)?)\\)"),
-                //let match = m,
-                let minVer = match.value(withName: "minVer"),
-                let currentVer = match.value(withName: "currentVer") {
-                throw Error.minimumSwiftNotMet(current: currentVer, required: minVer)
-            }
-            throw Error.unableToLoadDescription(packagePath.string,
-                                                output/*pkgDescribeResponse.output*/)
-        }
-        
-        //print("Parson Package['\(packagePath.lastComponent)'] json")
-        var data: Data =  pkgDescribeResponse.out ?? Data()
-        
-        //print("Decoding Package['\(packagePath.lastComponent)'] json")
-        let desc: Description!
+        console?.printVerbose("Loading Package['\(packagePath.lastComponent)'] description json")
+        var desc: Description! = nil
         let decoder = JSONDecoder()
-        do {
-            desc = try decoder.decode(Description.self, from: data)
-        } catch {
-            throw Error.unableToTransformDescriptionIntoObjects(error,
-                                                                data,
-                                                                String(data: data,
-                                                                       encoding: .utf8))
+        var data: Data = Data()
+        // Setup to retry getting the package description since
+        // on occasion it fails for various reasons like
+        // when needing to download / redownload dependencies
+        for retryCount in 0..<2 {
+            let isLastTry = (retryCount == 1)
+            if retryCount > 0 {
+                console?.printDebug("Retrying to load Package['\(packagePath.lastComponent)']")
+            }
+            
+            let pkgDescribeResponse = try swiftCLI.waitAndCaptureDataResponse(arguments: ["package",
+                                                                                            "describe",
+                                                                                            "--type",
+                                                                                            "json"],
+                                                                              currentDirectory: packagePath.url,
+                                                                              outputOptions: .captureAll,
+                                                                              withDataType: Data.self)
+            
+            if pkgDescribeResponse.exitStatusCode != 0 {
+                let output: String? = String(optData: pkgDescribeResponse.output,
+                                             encoding: .utf8)
+                //if let describeStr = pkgDescribeResponse.output,
+                if let describeStr = output,
+                   let match = try! describeStr.firstMatch(pattern: "requires a minimum Swift tools version of (?<minVer>(\\d+(\\.\\d+(\\.\\d+)?)?)) \\(currently (?<currentVer>\\d+(\\.\\d+(\\.\\d+)?)?)\\)"),
+                    //let match = m,
+                    let minVer = match.value(withName: "minVer"),
+                    let currentVer = match.value(withName: "currentVer") {
+                    throw Error.minimumSwiftNotMet(current: currentVer, required: minVer)
+                } else if let describeStr = output,
+                          let match = try! describeStr.firstMatch(pattern: "unable to restore state from (?<schemaPath>.+/dependencies-state.json; unsupported schema version (?<schemaVer>.+)"),
+                          let schemaPath = match.value(withName: "schemaPath"),
+                          let schemaVer = match.value(withName: "schemaVer") {
+                    throw Error.unsupportedPackageSchemaVersion(schemaPath: schemaPath,
+                                                                version: schemaVer)
+                }
+                throw Error.unableToLoadDescription(packagePath.string,
+                                                    output/*pkgDescribeResponse.output*/)
+            }
+            
+            
+            
+            console?.printVerbose("Parsing Package['\(packagePath.lastComponent)'] json")
+            data =  pkgDescribeResponse.out ?? Data()
+            
+            //print("Decoding Package['\(packagePath.lastComponent)'] json")
+            
+            do {
+                console?.printVerbose("Decoding Package['\(packagePath.lastComponent)'] json")
+                desc = try decoder.decode(Description.self, from: data)
+                console?.printVerbose("Decoded Package['\(packagePath.lastComponent)'] json")
+                break
+            } catch {
+                // try seeing of the expected json is within the output
+                if !isLastTry,
+                   var jsonString = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   jsonString.hasSuffix("}"),
+                   let r = jsonString.range(of: "{") {
+                    jsonString = String(jsonString[r.upperBound...])
+                    if let dta = jsonString.data(using: .utf8) {
+                        console?.printVerbose("Decoding Package['\(packagePath.lastComponent)'] json secondary attempt")
+                        if let d = try? decoder.decode(Description.self, from: dta) {
+                            desc = d
+                            console?.printVerbose("Decoded Package['\(packagePath.lastComponent)'] json secondary attempt")
+                            break
+                        }
+                    }
+                }
+                if isLastTry {
+                    // If we're on our last try we will throw the error
+                    // otherwise we will retry again
+                    throw Error.unableToTransformDescriptionIntoObjects(error,
+                                                                        data,
+                                                                        String(data: data,
+                                                                               encoding: .utf8))
+                }
+            }
         }
-        //print("Loading Package['\(packagePath.lastComponent)'] dump")
+        
+        guard desc != nil else {
+            // This should not happen because
+            // it should fail earlier if unable to load package description
+            throw Error.unableToLoadDescription(packagePath.string,
+                                                nil)
+        }
+        
+        console?.printVerbose("Loading Package['\(packagePath.lastComponent)'] dump")
         let pkgDumpResponse = try swiftCLI.waitAndCaptureDataResponse(arguments: ["package",
                                                                                   "dump-package"],
                                                                       currentDirectory: packagePath.url,
@@ -365,23 +433,27 @@ public struct PackageDescription {
             let output = String(optData: pkgDumpResponse.output,
                                 encoding: .utf8)
             
-            /// If output contains "unable to restore state from" then we're still good
+            // If output contains "unable to restore state from" then we're still good
             if !(output?.contains("unable to restore state from") ?? false) {
             
                 throw Error.unableToLoadDescription(packagePath.string,
                                                     output)
             }
         }
-        //print("Decoding Package['\(packagePath.lastComponent)'] dump")
+        
         let dump: PackageDump!
         do {
+            console?.printVerbose("Decoding Package['\(packagePath.lastComponent)'] dump")
             dump = try decoder.decode(PackageDump.self, from: data)
+            console?.printVerbose("Decoded Package['\(packagePath.lastComponent)'] dump")
         } catch {
             throw Error.unableToTransformPackageDumpIntoObjects(error,
                                                                 data,
                                                                 String(data: data,
                                                                        encoding: .utf8))
         }
+        
+        
         
         self.name = desc.name
         self.path = desc.path
@@ -409,6 +481,7 @@ public struct PackageDescription {
         
         guard loadDependencies else {
             self.dependencies = nil
+            preloadedPackageDescriptions.append(self)
             return
         }
         
@@ -420,7 +493,7 @@ public struct PackageDescription {
                                                                         outputOptions: .captureAll,
                                                                       withDataType: Data.self)
         
-        //print("Parsing Package['\(packagePath.lastComponent)'] dependencies")
+        console?.printVerbose("Parsing Package['\(packagePath.lastComponent)'] dependencies")
         data = depTaskResponse.out ?? Data()
         
         if depTaskResponse.exitStatusCode != 0 {
@@ -436,7 +509,7 @@ public struct PackageDescription {
         }
         
         
-        //print("Decoding Package['\(packagePath.lastComponent)'] dependencies")
+        console?.printVerbose("Decoding Package['\(packagePath.lastComponent)'] dependencies")
         
         let dep: _Dependency!
         do {
@@ -445,26 +518,48 @@ public struct PackageDescription {
             throw Error.unableToTransformDependenciesIntoObjects(error, data, String(data: data, encoding: .utf8))
         }
         var deps: [Dependency] = []
-        var err: Swift.Error? = nil
+        //var err: Swift.Error? = nil
         
-        //print("Loading Package['\(packagePath.lastComponent)'] Dependency Details")
-        let opQueue = OperationQueue()
+        console?.printVerbose("Loading Package['\(packagePath.lastComponent)'] Dependency Details")
+        //let opQueue = OperationQueue()
         
         for d in dep.dependencies {
             do {
                 //print("Trying to load dependency '\(d.name)'")
-                deps.append(try Dependency(d, swiftCLI: swiftCLI))
+                deps.append(try Dependency(d,
+                                           swiftCLI: swiftCLI,
+                                           preloadedPackageDescriptions: &preloadedPackageDescriptions,
+                                            console: console))
             } catch {
-                err = error
-                opQueue.cancelAllOperations()
+                //err = error
+                //opQueue.cancelAllOperations()
+                throw error
             }
         }
-        opQueue.waitUntilAllOperationsAreFinished()
-        if let e = err {
+        //opQueue.waitUntilAllOperationsAreFinished()
+        /*if let e = err {
             throw e
-        }
+        }*/
         self.dependencies = deps
-         
+        preloadedPackageDescriptions.append(self)
+    }
+    
+    /// Create new Package Description
+    /// - Parameters:
+    ///   - swiftCLI: CLI Capture object used to execute Swift commands
+    ///   - packagePath: Path the the swift project (Folder only)
+    ///   - loadDependencies: Indicator if should load list of package dependencies
+    ///   - console: Console to write detailed loading information
+    public init(swiftCLI: CLICapture,
+                packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
+                loadDependencies: Bool,
+                console: Console? = nil) throws {
+        var preloadedPackageDescriptions: [PackageDescription] = []
+        try self.init(swiftCLI: swiftCLI,
+                      packagePath: packagePath,
+                      loadDependencies: loadDependencies,
+                      preloadedPackageDescriptions: &preloadedPackageDescriptions,
+                      console: console)
     }
     
     
@@ -473,11 +568,15 @@ public struct PackageDescription {
     ///   - swiftPath: Path to the swift executable, (Default: default location of swift)
     ///   - packagePath: Path the the swift project (Folder only)
     ///   - loadDependencies: Indicator if should load list of package dependencies
+    ///   - preloadedPackageDescriptions: An array of already loaded package dependencies
     ///   - fileManager: The file manager to use when accessing file information
+    ///   - console: Console to write detailed loading information
     public init(swiftPath: FSPath = DSwiftSettings.defaultSwiftPath,
                 packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
                 loadDependencies: Bool,
-                using fileManager: FileManager = .default) throws {
+                preloadedPackageDescriptions: inout [PackageDescription],
+                using fileManager: FileManager = .default,
+                console: Console) throws {
         if !swiftPath.exists(using: fileManager) {
             throw Error.missingSwift(swiftPath.string)
         }
@@ -487,8 +586,32 @@ public struct PackageDescription {
         
         try self.init(swiftCLI: swiftCLI,
                       packagePath: FSPath(packagePath.string),
-                      loadDependencies: loadDependencies)
+                      loadDependencies: loadDependencies,
+                      preloadedPackageDescriptions: &preloadedPackageDescriptions,
+                      console: console)
         
+    }
+    
+    /// Create new Package Description
+    /// - Parameters:
+    ///   - swiftPath: Path to the swift executable, (Default: default location of swift)
+    ///   - packagePath: Path the the swift project (Folder only)
+    ///   - loadDependencies: Indicator if should load list of package dependencies
+    ///   - fileManager: The file manager to use when accessing file information
+    ///   - console: Console to write detailed loading information
+    public init(swiftPath: FSPath = DSwiftSettings.defaultSwiftPath,
+                packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
+                loadDependencies: Bool,
+                using fileManager: FileManager = .default,
+                console: Console) throws {
+        
+        var preloadedPackageDescriptions: [PackageDescription] = []
+        try self.init(swiftPath: swiftPath,
+                      packagePath: packagePath,
+                      loadDependencies: loadDependencies,
+                      preloadedPackageDescriptions: &preloadedPackageDescriptions,
+                      using: fileManager,
+                      console: console)
     }
 }
 
@@ -523,6 +646,8 @@ extension PackageDescription.Error: CustomStringConvertible {
                 return rtn
             case .minimumSwiftNotMet(current: let current, required: let required):
                 return "Requires a minimum Swift tools version of \(required) (currently \(current))"
+            case .unsupportedPackageSchemaVersion(schemaPath: let path, version: let ver):
+                return "unable to restore state from \(path); unsupported schema version \(ver)"
             case .dependencyMissingLocalPath(name: let name, url: let url, version: let version):
                  var rtn = "Dependency \(name) having url \(url)"
                  if version != "unspecified" {
