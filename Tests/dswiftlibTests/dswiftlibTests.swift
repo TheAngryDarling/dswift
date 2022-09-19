@@ -1342,7 +1342,17 @@ I hope that this works
             // copy test code here
             let sourceFolder = tmpFolder.appendingComponent("Sources")
             let appSourceFolder = sourceFolder.appendingComponent(appName)
-            let mainSwiftFile = appSourceFolder.appendingComponent("main.swift")
+            let mainSwiftFileV5_7 = appSourceFolder.appendingComponent("\(appName).swift")
+            let mainSwiftFileLTV5_7 = appSourceFolder.appendingComponent("main.swift")
+            let mainSwiftFile: FSPath
+            if mainSwiftFileLTV5_7.exists(using: fileManager) {
+                mainSwiftFile = mainSwiftFileLTV5_7
+            } else if mainSwiftFileV5_7.exists(using: fileManager) {
+                mainSwiftFile = mainSwiftFileV5_7
+            } else {
+                XCTFail("Unable to identify Test App's main file")
+                return
+            }
             do {
                 try mainSwiftFile.remove(using: fileManager)
             } catch {

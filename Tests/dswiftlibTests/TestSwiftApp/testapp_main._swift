@@ -1,6 +1,15 @@
+#if swift(>=5.7)
+@main
+public struct TestSwiftApp {
+    
+    public static func main() {
+        dswiftCall()
+    }
+}
+#else
 //
 //  File.swift
-//  
+//
 //
 //  Created by Tyler Anger on 2022-04-22.
 //
@@ -8,3 +17,4 @@
 import Foundation
 
 dswiftCall()
+#endif
