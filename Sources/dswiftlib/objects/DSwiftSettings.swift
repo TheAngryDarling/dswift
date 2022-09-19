@@ -443,7 +443,7 @@ public struct DSwiftSettings {
                     do {
                         let src = try String(contentsOf: packageFilePath.url)
                         let firstLine = String(src.split(separator: "\n").first!)
-                        packageVersion = firstLine.replacingOccurrences(of: "// swift-tools-version:", with: "")
+                        packageVersion = firstLine.replacingOccurrences(of: "// swift-tools-version:", with: "").trim()
                         readmeContents += "![swift >= \(packageVersion)](https://img.shields.io/badge/swift-%3E%3D\(packageVersion)-brightgreen.svg)\n"
                     } catch {}
                 }
