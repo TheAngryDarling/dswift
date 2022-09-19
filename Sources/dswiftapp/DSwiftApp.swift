@@ -16,7 +16,7 @@ import PathHelpers
 
 public enum DSwiftApp {
     
-    public static let dSwiftVersion: Version.SingleVersion = "2.0.0"
+    public static let dSwiftVersion: Version.SingleVersion = "2.0.1"
     public static let dSwiftModuleName: String = "Dynamic Swift"
     public static let dSwiftURL: String = "https://github.com/TheAngryDarling/dswift"
     
