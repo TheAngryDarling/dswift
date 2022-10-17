@@ -605,9 +605,10 @@ extension Commands {
                                 // If we find that the file is in a sub folder we must find the sub group
                                 if relPath.hasSubDirectories {
                                     
-                                    group = try project.xcodeResources.createSubGroup(atPath: relPath.deletingLastComponent().string,
+                                    group = try project.xcodeResources.createSubGroup(atPath: "/" + relPath.deletingLastComponent().string,
                                                                                       createFolders: false,
                                                                                       savePBXFile: false)
+                                    
                                 }
                                 
                                 queue.addXcodeModificationOperation {
