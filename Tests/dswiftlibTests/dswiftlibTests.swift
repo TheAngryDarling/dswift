@@ -552,6 +552,31 @@ class dswiftlibTests: XCExtenedTestCase {
             } while url.path != "/.."
         }
         
+        let testFilePath = "/path/to/file.txt"
+        
+        XCTAssertEqual(FSPath(testFilePath).deletingExtension().string,
+                       NSString(string: testFilePath).deletingPathExtension)
+        
+        XCTAssertEqual(FSSafePath(testFilePath).deletingExtension().string,
+                       NSString(string: testFilePath).deletingPathExtension)
+        
+        XCTAssertEqual(FSPath(testFilePath).appendingExtension("").string,
+                       NSString(string: testFilePath).appendingPathExtension(""))
+        XCTAssertEqual(FSSafePath(testFilePath).appendingExtension("").string,
+                       NSString(string: testFilePath).appendingPathExtension(""))
+        XCTAssertEqual(FSRelativePath(testFilePath).appendingExtension("").string,
+                       NSString(string: testFilePath).appendingPathExtension(""))
+        
+        XCTAssertEqual(FSPath(testFilePath).appendingExtension(".newExt").string,
+                       NSString(string: testFilePath).appendingPathExtension(".newExt"))
+        XCTAssertEqual(FSSafePath(testFilePath).appendingExtension(".newExt").string,
+                       NSString(string: testFilePath).appendingPathExtension(".newExt"))
+        XCTAssertEqual(FSRelativePath(testFilePath).appendingExtension(".newExt").string,
+                       NSString(string: testFilePath).appendingPathExtension(".newExt"))
+        
+        let testRelFilePath = String(testFilePath[testFilePath.index(after: testFilePath.startIndex)...])
+        XCTAssertEqual(FSRelativePath(testRelFilePath).deletingExtension().string,
+                       NSString(string: testRelFilePath).deletingPathExtension)
     }
     
     func testPackageLoads() {

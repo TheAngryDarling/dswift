@@ -54,7 +54,7 @@ public extension FSSafePath {
         var range = self.string.startIndex..<self.string.endIndex
         // find the last component separator
         if let r = self.string.range(of: self.componentSeparatorStr, options: .backwards) {
-            range = r
+            range = r.upperBound..<self.string.endIndex
         }
         
         // Find where the "." in the string within the given range
@@ -81,6 +81,7 @@ public extension FSSafePath {
     }
     
     mutating func appendExtension(_ ext: String) {
+        guard !ext.isEmpty else { return }
         self.string += ".\(ext)"
     }
 }
