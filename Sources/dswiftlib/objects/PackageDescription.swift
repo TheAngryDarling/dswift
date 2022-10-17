@@ -336,6 +336,8 @@ public struct PackageDescription {
         var desc: Description! = nil
         let decoder = JSONDecoder()
         var data: Data = Data()
+        // a copy of the original data for error display purposes
+        var displayData: Data = Data()
         // Setup to retry getting the package description since
         // on occasion it fails for various reasons like
         // when needing to download / redownload dependencies
@@ -378,10 +380,15 @@ public struct PackageDescription {
             
             console?.printVerbose("Parsing Package['\(packagePath.lastComponent)'] json")
             data =  pkgDescribeResponse.out ?? Data()
+            displayData = data
             
             //print("Decoding Package['\(packagePath.lastComponent)'] json")
             
             do {
+                // if data does not start with '{' then we will stry and strip out
+                // everything before it
+                PackageDescription.fixJSON(&data)
+                
                 console?.printVerbose("Decoding Package['\(packagePath.lastComponent)'] json")
                 desc = try decoder.decode(Description.self, from: data)
                 console?.printVerbose("Decoded Package['\(packagePath.lastComponent)'] json")
@@ -406,8 +413,8 @@ public struct PackageDescription {
                     // If we're on our last try we will throw the error
                     // otherwise we will retry again
                     throw Error.unableToTransformDescriptionIntoObjects(error,
-                                                                        data,
-                                                                        String(data: data,
+                                                                        displayData,
+                                                                        String(data: displayData,
                                                                                encoding: .utf8))
                 }
             }
@@ -428,6 +435,7 @@ public struct PackageDescription {
                                                                       withDataType: Data.self)
         
         data = pkgDumpResponse.out ?? Data()
+        displayData = data
         
         if pkgDumpResponse.exitStatusCode != 0 {
             let output = String(optData: pkgDumpResponse.output,
@@ -443,13 +451,17 @@ public struct PackageDescription {
         
         let dump: PackageDump!
         do {
+            // if data does not start with '{' then we will stry and strip out
+            // everything before it
+            PackageDescription.fixJSON(&data)
+            
             console?.printVerbose("Decoding Package['\(packagePath.lastComponent)'] dump")
             dump = try decoder.decode(PackageDump.self, from: data)
             console?.printVerbose("Decoded Package['\(packagePath.lastComponent)'] dump")
         } catch {
             throw Error.unableToTransformPackageDumpIntoObjects(error,
-                                                                data,
-                                                                String(data: data,
+                                                                displayData,
+                                                                String(data: displayData,
                                                                        encoding: .utf8))
         }
         
@@ -495,7 +507,7 @@ public struct PackageDescription {
         
         console?.printVerbose("Parsing Package['\(packagePath.lastComponent)'] dependencies")
         data = depTaskResponse.out ?? Data()
-        
+        displayData = data
         if depTaskResponse.exitStatusCode != 0 {
             let output = String(optData: depTaskResponse.output,
                                 encoding: .utf8)
@@ -513,9 +525,13 @@ public struct PackageDescription {
         
         let dep: _Dependency!
         do {
+            PackageDescription.fixJSON(&data)
             dep = try decoder.decode(_Dependency.self, from: data)
         } catch {
-            throw Error.unableToTransformDependenciesIntoObjects(error, data, String(data: data, encoding: .utf8))
+            throw Error.unableToTransformDependenciesIntoObjects(error,
+                                                                 displayData,
+                                                                 String(data: displayData,
+                                                                        encoding: .utf8))
         }
         var deps: [Dependency] = []
         //var err: Swift.Error? = nil
@@ -612,6 +628,16 @@ public struct PackageDescription {
                       preloadedPackageDescriptions: &preloadedPackageDescriptions,
                       using: fileManager,
                       console: console)
+    }
+    
+    internal static func fixJSON(_ data: inout Data) {
+        // ensure the first byte in the data bloc is not '{'
+        guard data[0] != 123 /* '{' */,
+              let startOfJSON = data.firstIndex(of: 123), // find the first '{'
+              let endOfJSON = data.lastIndex(of: 125) /* '}' */ else { // find the last '}'
+            return
+        }
+        data = Data(data[startOfJSON...endOfJSON])
     }
 }
 
