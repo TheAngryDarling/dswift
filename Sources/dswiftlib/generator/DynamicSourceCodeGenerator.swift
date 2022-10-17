@@ -765,7 +765,8 @@ let package = Package(
         // Try and compare new source with old source.  Only update if they are not the same
         // We do this so that the file modification does not happen unless absolutely required
         // so git does not think its a new file unless it really is
-        guard s.source != oldSource else {
+        //guard s.source != oldSource else {
+        guard !self.compareSources(s.source, oldSource) else {
             self.console.printVerbose("No changes to source: \(destinationPath)",
                                     object: self)
             return
@@ -791,6 +792,40 @@ let package = Package(
                                         object: self)
             }
         }
+    }
+    
+    private func compareSources(_ src1: String, _ src2: String) -> Bool {
+        var lhs = src1
+        var rhs = src2
+        // reduce os specific lines to same type (change windows to linux/unix)
+        lhs = lhs.replacingOccurrences(of: "\r\n", with: "\n")
+        // reduce os specific lines to same type (change windows to linux/unix)
+        rhs = rhs.replacingOccurrences(of: "\r\n", with: "\n")
+        
+        let endOfTopCommentIdentifiers = DynamicSourceCodeBuilder.generateListOfEndOfDSwiftTopCommentBlock(dswiftInfo: dswiftInfo)
+        var hasFixedSrc1: Bool = false
+        var hasFixedSrc2: Bool = false
+        for ident in endOfTopCommentIdentifiers {
+            if !hasFixedSrc1,
+               let r = lhs.range(of: ident) {
+                // remove everything from the top of the string upto and including
+                // the last line of the stop dswift comment block
+                lhs = String(lhs[r.upperBound...])
+                hasFixedSrc1 = true
+            }
+            if !hasFixedSrc2,
+               let r = rhs.range(of: ident) {
+                // remove everything from the top of the string upto and including
+                // the last line of the stop dswift comment block
+                rhs = String(rhs[r.upperBound...])
+                hasFixedSrc2 = true
+            }
+            if hasFixedSrc1 && hasFixedSrc2 {
+                break
+            }
+        }
+        
+        return lhs == rhs
     }
     
     // Check to see if any of the included files have been modified since the

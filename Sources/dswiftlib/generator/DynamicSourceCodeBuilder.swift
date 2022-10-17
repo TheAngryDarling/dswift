@@ -977,6 +977,32 @@ public class DynamicSourceCodeBuilder {
         
     }
     
+    
+    /// Function used to generate the last line of the top dswift comment block
+    private static func generateCurrentEndOfDSwiftTopCommentBlock(dswiftInfo: DSwiftInfo) -> String {
+        return "//  \(dswiftInfo.moduleName) can be found at \(dswiftInfo.url).\n\n"
+    }
+    /// Function used to generate the last line of the top dswift comment block
+    private func generateCurrentEndOfDSwiftTopCommentBlock() -> String {
+        return DynamicSourceCodeBuilder.generateCurrentEndOfDSwiftTopCommentBlock(dswiftInfo: self.dswiftInfo)
+    }
+    /// Function which will return an array of any variation of the last line in the dswift top comment block
+    public static func generateListOfEndOfDSwiftTopCommentBlock(dswiftInfo: DSwiftInfo) -> [String] {
+        var rtn: [String] = []
+        let line = self.generateCurrentEndOfDSwiftTopCommentBlock(dswiftInfo: dswiftInfo)
+        rtn.append(line)
+        if line.contains("\r\n") {
+            // Add last time of top comment block with LF not CRLF as for possible
+            // testing agains file generated on linxu/unix
+            rtn.append(line.replacingOccurrences(of: "\r\n", with: "\n"))
+        } else if line.contains("\n") {
+            // Add last time of top comment block with CRLF not just LF as for possible
+            // testing agains file generated on windows (if ever supported)
+            rtn.append(line.replacingOccurrences(of: "\n", with: "\r\n"))
+        }
+        return rtn
+    }
+    
     func generateSourceGenerator() throws -> String {
         var generatorContent: String = ""
         var globalContent: String = ""
@@ -1041,7 +1067,15 @@ public class DynamicSourceCodeBuilder {
         completeSource += "\t\tvar sourceBuilder = out\n\n"
         
         completeSource += "\t\tsourceBuilder += \"//  This file was dynamically generated from '\(self.file.lastComponent)' by \(self.dswiftInfo.moduleName) v\(self.dswiftInfo.version).  Please do not modify directly.\\n\"\n"
-        completeSource += "\t\tsourceBuilder += \"//  \(self.dswiftInfo.moduleName) can be found at \(self.dswiftInfo.url).\\n\\n\"\n"
+        //completeSource += "\t\tsourceBuilder += \"//  \(self.dswiftInfo.moduleName) can be found at \(self.dswiftInfo.url).\\n\\n\"\n"
+        var lastTopCommentLine = self.generateCurrentEndOfDSwiftTopCommentBlock()
+        // we must escape the '\' so when writing it to its own swift file it strips one level out
+        // eg: for \n we must do \\n
+        for replacement in [("\\", "\\\\"), ("\r", "\\r"),("\n", "\\n"), ("\"", "\\\"")] {
+            lastTopCommentLine = lastTopCommentLine.replacingOccurrences(of: replacement.0,
+                                                                         with: replacement.1)
+        }
+        completeSource += "\t\tsourceBuilder += \"\(lastTopCommentLine)\"\n"
         completeSource += generatorContent
         completeSource += "\n\t\treturn sourceBuilder.buffer\n"
         completeSource += "\t}\n"
