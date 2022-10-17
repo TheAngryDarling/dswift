@@ -6,3 +6,4 @@
 /Packages
 /*.xcodeproj
 Package.resolved
+.smbdelete*
