@@ -24,7 +24,7 @@ let package = Package(
         .package(url: "https://github.com/TheAngryDarling/SwiftXcodeProj.git",
                  from: "2.0.1"),
         .package(url: "https://github.com/TheAngryDarling/SwiftBasicCodableHelpers.git",
-                 from: "1.1.6"),
+                 from: "1.1.7"),
     
         .package(url: "https://github.com/TheAngryDarling/SwiftPatches.git",
                  from: "2.0.9"),
