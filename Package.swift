@@ -81,6 +81,7 @@ let package = Package(
                                    "dswiftapp",
                                    "UnitTestingHelper",
                                    "CodeTimer",
-                                   "JSONCommentCleaner"])
+                                   "JSONCommentCleaner",
+                                   "SwiftPatches"])
     ]
 )
