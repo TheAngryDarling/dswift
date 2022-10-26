@@ -1087,7 +1087,11 @@ public class DynamicSourceCodeBuilder {
         completeSource += "\t let srcEncoding = String.Encoding(rawValue: \(self.sourceEncoding.rawValue))\n"
         completeSource += "\t let gen = \(clsName)()\n"
         completeSource += "\t let src = gen.generate()\n"
-        completeSource += "\t try src.write(to: URL(fileURLWithPath: CommandLine.arguments[1]), atomically: true, encoding: srcEncoding)\n"
+        completeSource += "\t if CommandLine.arguments[1] == \"_\" || CommandLine.arguments[1] == \"/dev/stdout\" {\n"
+        completeSource += "\t\t print(src)\n"
+        completeSource += "\t } else {\n"
+        completeSource += "\t\t try src.write(to: URL(fileURLWithPath: CommandLine.arguments[1]), atomically: true, encoding: srcEncoding)\n"
+        completeSource += "\t }\n"
         completeSource += "}"
         
         return completeSource
