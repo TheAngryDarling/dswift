@@ -452,20 +452,25 @@ extension Commands {
             // Add Config git ignore additions
             workingGitIgnoreFile += gitIgnoreAdditions
         }
-        
+        var isUpdatingGitIgnore: Bool = false
         if gitIgnorePath.exists() {
+            isUpdatingGitIgnore = true
             do {
                 let currentGitIgnore = try GitIgnoreFile(at: gitIgnorePath)
                 // Add existing gitignore settings
                 workingGitIgnoreFile += currentGitIgnore
-            } catch { }
+            } catch {
+                self.console.printError("Unable to read existing .gitignore")
+            }
         }
         
         do {
-            self.console.print("Updating .gitignore")
+            if isUpdatingGitIgnore { self.console.print("Updating .gitignore") }
+            else { self.console.print("Adding .gitignore") }
             try workingGitIgnoreFile.save(to: gitIgnorePath)
         } catch {
-            self.console.printError("Failed to update .gitignore")
+            if isUpdatingGitIgnore { self.console.printError("Failed to update .gitignore") }
+            else { self.console.printError("Failed to add .gitignore") }
             self.console.printError(error)
         }
         
