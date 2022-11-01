@@ -533,7 +533,23 @@ public struct DSwiftSettings {
     }
     
     /// The default swift path
-    public static let defaultSwiftPath: FSPath = FSPath("/usr/bin/swift")
+    public private(set) static var defaultSwiftPath: FSPath = {
+            let envPath = ProcessInfo.processInfo.environment["PATH", default: ""]
+            let paths = envPath.split(separator: FSPath.PathSeparator).map(String.init)
+            let fileManager = FileManager.default
+            for path in paths {
+                var workingPath = path
+                if !workingPath.hasSuffix("\(FSPath.ComponentSeparator)") {
+                    workingPath += "\(FSPath.ComponentSeparator)"
+                }
+                workingPath += "swift"
+                if fileManager.fileExists(atPath: workingPath) &&
+                   fileManager.isExecutableFile(atPath: workingPath) {
+                    return FSPath(workingPath)
+                }
+            }
+            return FSPath("/usr/bin/swift")
+        }()
     /// The default swift command
     public static let defaultSwiftCommand: CLICommand = .init(executable: defaultSwiftPath)
     /// The command for swift to use (Default: DSwiftSettings.defaultSwiftCommand)
