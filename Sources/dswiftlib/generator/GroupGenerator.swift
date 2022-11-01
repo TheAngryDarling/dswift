@@ -39,6 +39,22 @@ public class GroupGenerator: DynamicGenerator {
     
     public required init(swiftCLI: CLICapture,
                          dswiftInfo: DSwiftInfo,
+                         tempDir: FSPath,
+                         console: Console) throws {
+        var generators: [DynamicGenerator] = []
+
+        for generator in GroupGenerator.GENERATORS {
+            generators.append(try generator.init(swiftCLI: swiftCLI,
+                                                 dswiftInfo: dswiftInfo,
+                                                 tempDir: tempDir,
+                                                 console: console))
+        }
+        
+        self.generators = generators
+    }
+    
+    public required init(swiftCLI: CLICapture,
+                         dswiftInfo: DSwiftInfo,
                          console: Console) throws {
         
         var generators: [DynamicGenerator] = []

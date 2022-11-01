@@ -199,6 +199,7 @@ public struct Commands {
     ///   - settings: DSwift Settings Object
     ///   - swiftWrapper: Method used to execute commands
     ///   - swiftVersion: The version of swift currently being used
+    ///   - tempDir: The location for temporary file storage
     ///   - console: The object used to print to the console
     public init(dswiftInfo: DSwiftInfo,
                 dSwiftSettingsFilePath: String,
@@ -208,6 +209,7 @@ public struct Commands {
                 settings: DSwiftSettings,
                 swiftWrapper: SwiftCLIWrapper,
                 swiftVersion: Version.SingleVersion,
+                tempDir: FSPath = FSPath.tempDir,
                 console: Console = .null) throws {
         
         self.init(dswiftInfo: dswiftInfo,
@@ -218,6 +220,7 @@ public struct Commands {
                   settings: settings,
                   generator: try GroupGenerator.init(swiftCommand: settings.swiftCommand,
                                                      dswiftInfo: dswiftInfo,
+                                                     tempDir: tempDir,
                                                      console: console),
                   swiftWrapper: swiftWrapper,
                   swiftVersion: swiftVersion,

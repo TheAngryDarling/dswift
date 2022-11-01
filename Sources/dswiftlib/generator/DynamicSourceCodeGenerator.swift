@@ -374,10 +374,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     private static let CommonClassName: String = "ClassGEN"
     private let commonClassCounter = SyncLockObj<Int>(value: 0)
     
-    private let tempLocation: FSPath = {
-        return FSPath.tempDir.appendingComponent(String.random() + "-\(ProcessInfo.processInfo.processIdentifier)")
-        
-    } ()
+    private let tempLocation: FSPath
     
     private let swiftCLI: CLICapture
     
@@ -386,7 +383,20 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
     
     internal var preloadedDetails: PreloadedDetails
     
-    required public init(swiftCLI: CLICapture,
+    public required init(swiftCLI: CLICapture,
+                         dswiftInfo: DSwiftInfo,
+                         tempDir: FSPath,
+                         console: Console = .null) throws {
+        self.swiftCLI = swiftCLI
+        
+        self.dswiftInfo = dswiftInfo
+        self.preloadedDetails = PreloadedDetails(parseDSwiftToolsVersion: DynamicSourceCodeBuilder.parseDSwiftToolsVersion(from:source:console:),
+                                                 parseDSwiftTags: DynamicSourceCodeBuilder.parseDSwiftTags(in:source:project:console:using:))
+        self.console = console
+        self.tempLocation = tempDir.appendingComponent(String.random() + "-\(ProcessInfo.processInfo.processIdentifier)")
+    }
+    
+    public required init(swiftCLI: CLICapture,
                          dswiftInfo: DSwiftInfo,
                          console: Console = .null) throws {
         self.swiftCLI = swiftCLI
@@ -395,6 +405,7 @@ public class DynamicSourceCodeGenerator: DynamicGenerator {
         self.preloadedDetails = PreloadedDetails(parseDSwiftToolsVersion: DynamicSourceCodeBuilder.parseDSwiftToolsVersion(from:source:console:),
                                                  parseDSwiftTags: DynamicSourceCodeBuilder.parseDSwiftTags(in:source:project:console:using:))
         self.console = console
+        self.tempLocation = FSPath.tempDir.appendingComponent(String.random() + "-\(ProcessInfo.processInfo.processIdentifier)")
     }
     
     deinit {

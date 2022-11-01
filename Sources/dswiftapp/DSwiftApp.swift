@@ -1,6 +1,6 @@
 //
 //  DSwiftApp.swift
-//  
+//
 //
 //  Created by Tyler Anger on 2022-04-20.
 //
@@ -31,7 +31,7 @@ public enum DSwiftApp {
         #endif
         
         let dSwiftAppName: String = arguments.first!.components(separatedBy: "/").last!
-        
+        var dSwiftTempDir: FSPath = FSPath.tempDir
         let dSwiftSettingsFilePath: String = "~/.\(dSwiftAppName).config"
         
         let beginDSwiftSection: String = "---"
@@ -69,11 +69,39 @@ public enum DSwiftApp {
                     // set flag that will tell console object to log verbose logs
                     isVerboseOutput = true
                     arguments.remove(at: checkDSwiftParameters)
+                case "--dswiftsettempdir":
+                    // change the working temp directory
+                    guard checkDSwiftParameters < arguments.count - 1 else {
+                        console.printError("Missing new temp directory")
+                        return 1
+                    }
+                    // remove the --dswiftSetTempDir parameter
+                    arguments.remove(at: checkDSwiftParameters)
+                    let newTempDir = arguments[checkDSwiftParameters]
+                    var isDir: Bool = false
+                    guard FileManager.default.fileExists(atPath: newTempDir, isDirectory: &isDir) else {
+                        console.printError("New temp directory '\(newTempDir)' does not exist")
+                        return 1
+                    }
+                    guard isDir else {
+                        console.printError("'\(newTempDir)' is not a folder")
+                        return 1
+                    }
+                    dSwiftTempDir = FSPath(newTempDir)
+                    // remove the actual path parameter
+                    arguments.remove(at: checkDSwiftParameters)
                 default:
                     // move index to next argument
                     checkDSwiftParameters += 1
             }
             
+        }
+        
+        // Provides a way for scripts to get the path used in dswift for the temp dir
+        // helpfull when using --swiftCommand[Begin|End] when mapping folders
+        if arguments.contains(where: { return $0.lowercased() == "--dswifttempdir" }) {
+            console.print(dSwiftTempDir.string)
+            return 0
         }
 
         var settings: DSwiftSettings = {
@@ -192,6 +220,8 @@ public enum DSwiftApp {
                       console.print("OTHER:")
                       console.print("  --dswiftVerbose:      Allow \(dSwiftAppName) verbose logging")
                       console.print("  --dswiftDebug:        Allow \(dSwiftAppName) debug logging")
+                      console.print("  --dswiftTempDir:      Returns the temp directory used by \(dSwiftAppName).  This parameter will not process any dswift or swift commands")
+                      console.print("  --dswiftSetTempDir:   Sets the directory used for temporary files")
                 
                 return 0
             }
@@ -364,6 +394,7 @@ public enum DSwiftApp {
                                          settings: settings,
                                          swiftWrapper: swiftWrapper,
                                          swiftVersion: swiftVersion,
+                                         tempDir: dSwiftTempDir,
                                          console: console)
         } catch {
             console.printError("Unable to load commands: \(error)")

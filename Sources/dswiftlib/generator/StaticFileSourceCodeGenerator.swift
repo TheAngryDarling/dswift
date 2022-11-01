@@ -88,6 +88,14 @@ public class StaticFileSourceCodeGenerator: DynamicGenerator {
     
     public required init(swiftCLI: CLICapture,
                          dswiftInfo: DSwiftInfo,
+                         tempDir: FSPath,
+                         console: Console = .null) {
+        self.dswiftInfo = dswiftInfo
+        self.console = console
+    }
+    
+    public required init(swiftCLI: CLICapture,
+                         dswiftInfo: DSwiftInfo,
                          console: Console = .null) {
         
         self.dswiftInfo = dswiftInfo

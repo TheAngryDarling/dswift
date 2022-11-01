@@ -47,6 +47,12 @@ public protocol DynamicGenerator {
          dswiftInfo: DSwiftInfo,
          console: Console) throws
     
+    /// Initializer for creating a new generator
+    init(swiftCLI: CLICapture,
+         dswiftInfo: DSwiftInfo,
+         tempDir: FSPath,
+         console: Console) throws
+    
     /// A method to test if the current file can be added to a Xcode Project File
     func updateXcodeProject(xcodeFile: XcodeFileSystemURLResource,
                             inGroup group: XcodeGroup,
@@ -140,8 +146,19 @@ public extension DynamicGenerator {
     
     
     /// Initializer for creating a new generator
+    @available(*, deprecated, message: "Using default implementation,  tempDir will be ignored")
+    init(swiftCLI: CLICapture,
+         dswiftInfo: DSwiftInfo,
+         tempDir: FSPath,
+         console: Console) throws {
+        try self.init(swiftCLI: swiftCLI,
+                      dswiftInfo: dswiftInfo,
+                      console: console)
+    }
+    /// Initializer for creating a new generator
     init(swiftCommand: CLICommand,
          dswiftInfo: DSwiftInfo,
+         tempDir: FSPath = FSPath.tempDir,
          console: Console) throws {
         
         if !swiftCommand.executable.exists() {
@@ -153,23 +170,28 @@ public extension DynamicGenerator {
         
         try self.init(swiftCLI: swiftCLI,
                       dswiftInfo: dswiftInfo,
+                      tempDir: tempDir,
                       console: console)
     }
     
     /// Initializer for creating a new generator
     init(swiftPath: FSPath,
          dswiftInfo: DSwiftInfo,
+         tempDir: FSPath = FSPath.tempDir,
          console: Console) throws {
         
         try self.init(swiftCommand: .init(executable: swiftPath),
                       dswiftInfo: dswiftInfo,
+                      tempDir: tempDir,
                       console: console)
     }
     
     init(dswiftInfo: DSwiftInfo,
+         tempDir: FSPath = FSPath.tempDir,
          console: Console = .null) throws {
         try self.init(swiftCommand: DSwiftSettings.defaultSwiftCommand,
                       dswiftInfo: dswiftInfo,
+                      tempDir: tempDir,
                       console: console)
     }
     
