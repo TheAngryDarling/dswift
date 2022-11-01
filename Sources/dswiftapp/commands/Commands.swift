@@ -216,9 +216,9 @@ public struct Commands {
                   beginDSwiftSection: beginDSwiftSection,
                   endDSwiftSection:  endDSwiftSection,
                   settings: settings,
-                  generator: try GroupGenerator.init(swiftPath: settings.swiftPath,
-                                                dswiftInfo: dswiftInfo,
-                                                console: console),
+                  generator: try GroupGenerator.init(swiftCommand: settings.swiftCommand,
+                                                     dswiftInfo: dswiftInfo,
+                                                     console: console),
                   swiftWrapper: swiftWrapper,
                   swiftVersion: swiftVersion,
                   console: console)

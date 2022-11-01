@@ -581,24 +581,24 @@ public struct PackageDescription {
     
     /// Create new Package Description
     /// - Parameters:
-    ///   - swiftPath: Path to the swift executable, (Default: default location of swift)
+    ///   - swiftCommand: Command to the swift executable, (Default: default location of swift)
     ///   - packagePath: Path the the swift project (Folder only)
     ///   - loadDependencies: Indicator if should load list of package dependencies
     ///   - preloadedPackageDescriptions: An array of already loaded package dependencies
     ///   - fileManager: The file manager to use when accessing file information
     ///   - console: Console to write detailed loading information
-    public init(swiftPath: FSPath = DSwiftSettings.defaultSwiftPath,
+    public init(swiftCommand: CLICommand = DSwiftSettings.defaultSwiftCommand,
                 packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
                 loadDependencies: Bool,
                 preloadedPackageDescriptions: inout [PackageDescription],
                 using fileManager: FileManager = .default,
                 console: Console) throws {
-        if !swiftPath.exists(using: fileManager) {
-            throw Error.missingSwift(swiftPath.string)
+        if !swiftCommand.executable.exists(using: fileManager) {
+            throw Error.missingSwift(swiftCommand.executable.string)
         }
         
         let swiftCLI = CLICapture.init(outputLock: Console.sharedOutputLock,
-                                       createProcess: SwiftCLIWrapper.newSwiftProcessMethod(swiftURL: swiftPath.url))
+                                       createProcess: SwiftCLIWrapper.newSwiftProcessMethod(swiftCommand: swiftCommand))
         
         try self.init(swiftCLI: swiftCLI,
                       packagePath: FSPath(packagePath.string),
@@ -613,9 +613,53 @@ public struct PackageDescription {
     ///   - swiftPath: Path to the swift executable, (Default: default location of swift)
     ///   - packagePath: Path the the swift project (Folder only)
     ///   - loadDependencies: Indicator if should load list of package dependencies
+    ///   - preloadedPackageDescriptions: An array of already loaded package dependencies
     ///   - fileManager: The file manager to use when accessing file information
     ///   - console: Console to write detailed loading information
-    public init(swiftPath: FSPath = DSwiftSettings.defaultSwiftPath,
+    public init(swiftPath: FSPath,
+                packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
+                loadDependencies: Bool,
+                preloadedPackageDescriptions: inout [PackageDescription],
+                using fileManager: FileManager = .default,
+                console: Console) throws {
+        try self.init(swiftCommand: .init(swiftPath),
+                      packagePath: packagePath,
+                      loadDependencies: loadDependencies,
+                      preloadedPackageDescriptions: &preloadedPackageDescriptions,
+                      using: fileManager,
+                      console: console)
+    }
+    
+    /// Create new Package Description
+    /// - Parameters:
+    ///   - swiftCommand: Command to the swift executable, (Default: default location of swift)
+    ///   - packagePath: Path the the swift project (Folder only)
+    ///   - loadDependencies: Indicator if should load list of package dependencies
+    ///   - fileManager: The file manager to use when accessing file information
+    ///   - console: Console to write detailed loading information
+    public init(swiftCommand: CLICommand = DSwiftSettings.defaultSwiftCommand,
+                packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
+                loadDependencies: Bool,
+                using fileManager: FileManager = .default,
+                console: Console) throws {
+        
+        var preloadedPackageDescriptions: [PackageDescription] = []
+        try self.init(swiftCommand: swiftCommand,
+                      packagePath: packagePath,
+                      loadDependencies: loadDependencies,
+                      preloadedPackageDescriptions: &preloadedPackageDescriptions,
+                      using: fileManager,
+                      console: console)
+    }
+    
+    /// Create new Package Description
+    /// - Parameters:
+    ///   - swiftPath: Path to the swift executable, (Default: default location of swift)
+    ///   - packagePath: Path the the swift project (Folder only)
+    ///   - loadDependencies: Indicator if should load list of package dependencies
+    ///   - fileManager: The file manager to use when accessing file information
+    ///   - console: Console to write detailed loading information
+    public init(swiftPath: FSPath,
                 packagePath: FSPath = FSPath(FileManager.default.currentDirectoryPath),
                 loadDependencies: Bool,
                 using fileManager: FileManager = .default,

@@ -40,6 +40,41 @@ public enum DSwiftApp {
         var supportsHelpCommand: Bool = false
 
         var console = Console.default
+        
+        /// List of dswift parameters
+        var dswiftParams: [String] = []
+        /// List of swift parameters to pass onto swift
+        var swiftParams: [String] = []
+        /// Indictor if we are in the dswift parameter section
+        var isInDSwiftParamSection: Bool = false
+
+
+        arguments.removeFirst() //First parameter is the application path
+
+        // Moved search for --dswift[verbose|debug]
+        // before seperation of dswift params and swift params
+        // added --dswiftSetTempDir to the list of
+        var isDebugOutput = false
+        var isVerboseOutput = false
+        var checkDSwiftParameters = 0
+        // parse out any --dswift parameters  out of argument list
+        while checkDSwiftParameters < arguments.count {
+            let paramLowered = arguments[checkDSwiftParameters].lowercased()
+            switch paramLowered {
+                case "--dswiftdebug":
+                    // set flag that will tell console object to log debug logs
+                    isDebugOutput = true
+                    arguments.remove(at: checkDSwiftParameters)
+                case "--dswiftverbose":
+                    // set flag that will tell console object to log verbose logs
+                    isVerboseOutput = true
+                    arguments.remove(at: checkDSwiftParameters)
+                default:
+                    // move index to next argument
+                    checkDSwiftParameters += 1
+            }
+            
+        }
 
         var settings: DSwiftSettings = {
             let settingsPath = NSString(string: dSwiftSettingsFilePath).standardizingPath
@@ -54,16 +89,8 @@ public enum DSwiftApp {
                 return DSwiftSettings()
             }
         }()
-        /// List of dswift parameters
-        var dswiftParams: [String] = []
-        /// List of swift parameters to pass onto swift
-        var swiftParams: [String] = []
-        /// Indictor if we are in the dswift parameter section
-        var isInDSwiftParamSection: Bool = false
-
-
-        arguments.removeFirst() //First parameter is the application path
-
+        
+        
         #if NO_DSWIFT_PARAMS
             // If no dswift paramters supported, all parameters must be for swift
             swiftParams = arguments
@@ -75,9 +102,38 @@ public enum DSwiftApp {
                 else if isInDSwiftParamSection { dswiftParams.append(p) }
                 else { swiftParams.append(p) }
             }
-
-            if let idx = dswiftParams.firstIndex(of: "--swiftPath"), idx < dswiftParams.count {
-                settings.swiftPath = FSPath(dswiftParams[idx + 1])
+        
+            var hasSwiftPath: Bool = false
+            if let idx = dswiftParams.firstIndex(of: "--swiftPath") {
+                guard idx < dswiftParams.count - 1 else {
+                    console.printError("Missing '--swiftPath' argument value")
+                    return 1
+                }
+                hasSwiftPath = true
+                settings.swiftCommand = .init(FSPath(dswiftParams[idx + 1]))
+            }
+        
+            if let cmdBeginAfter = dswiftParams.firstIndex(of: "--swiftCommandBegin") {
+                guard let cmdEndBefore = dswiftParams.firstIndex(of: "--swiftCommandEnd") else {
+                    console.printError("Missing '--swiftCommandEnd' argument")
+                    return 1
+                }
+                guard cmdBeginAfter < cmdEndBefore else {
+                    console.printError("'--swiftCommandEnd' argument must be after '--swiftCommandBegin' argument")
+                    return 1
+                }
+                
+                var commands = Array<String>(dswiftParams[dswiftParams.index(after: cmdBeginAfter)..<cmdEndBefore])
+                guard commands.count > 0 else {
+                    console.printError("No arguemnts found for swift command")
+                    return 1
+                }
+                let exec = commands[0]
+                commands.remove(at: 0)
+                if hasSwiftPath {
+                    console.printError("WARNING: '--swiftPath' and '--swiftCommandBegin'/'--swiftCommandEnd' arguments both set.  Using '--swiftCommandBegin'/'--swiftCommandEnd'")
+                }
+                settings.swiftCommand = .init(executablePath: exec, arguments: commands)
             }
 
         #endif
@@ -95,19 +151,7 @@ public enum DSwiftApp {
             return rtn
         }()
 
-        var isDebugOutput = false
-        var checkDebugIndex = 0
-        while checkDebugIndex < arguments.count {
-            if ["--dswiftverbose", "--dswiftdebug"].contains(arguments[checkDebugIndex].lowercased()) {
-                isDebugOutput = true
-                arguments.remove(at: checkDebugIndex)
-            } else {
-                checkDebugIndex += 1
-            }
-            
-        }
-
-
+        
         func swiftHelpAction(parent: CLICommandGroup,
                              argumentStartingAt: Int,
                              arguments: [String],
@@ -126,7 +170,7 @@ public enum DSwiftApp {
                 // Do default help here
                       console.print("OVERVIEW: \(dSwiftModuleName) compiler")
                       console.print("")
-                      console.print("USAGE: \(dSwiftAppName) <subcommand>")
+                      console.print("USAGE: \(dSwiftAppName) [\(dSwiftAppName) OPTIONS] <subcommand>")
                       console.print("")
                       console.print("SUBCOMMANDS (\(dSwiftAppName) <subcommand> [arguments]):")
                       console.print("  build:     SwiftPM - Build sources into binary products")
@@ -134,10 +178,21 @@ public enum DSwiftApp {
                       console.print("  package:   SwiftPM - Perform operations on Swift packages")
                       console.print("  run:       SwiftPM - Build and run an executable product")
                       console.print("  test:      SwiftPM - Build and run tests")
+                      if supportsHelpCommand {
+                          console.print("")
+                          console.print("  Use \"\(dSwiftAppName) help <subcommand>\" for more information about a subcommand")
+                      }
                       console.print("")
-                if supportsHelpCommand {
-                    console.print("  Use \"\(dSwiftAppName) help <subcommand>\" for more information about a subcommand")
-                }
+                      console.print("\(dSwiftAppName) OPTIONS:")
+                      console.print("\(dSwiftAppName) options must be encapsulated within '\(beginDSwiftSection)' ... '\(endDSwiftSection)'")
+                      console.print("  --swiftPath:      Specify the path to the swift executable to use")
+                      console.print("  --swiftCommandBegin/--swiftCommandEnd:")
+                      console.print("    Specify the executable and arguments needed to run swift.  Executable and arguments must fall between the begin and end parameters (This is useful for executing swift within a container)")
+                      console.print("")
+                      console.print("OTHER:")
+                      console.print("  --dswiftVerbose:      Allow \(dSwiftAppName) verbose logging")
+                      console.print("  --dswiftDebug:        Allow \(dSwiftAppName) debug logging")
+                
                 return 0
             }
             
@@ -221,7 +276,7 @@ public enum DSwiftApp {
         }
 
 
-        let swiftWrapper = SwiftCLIWrapper.init(swiftPath: settings.swiftPath,
+        let swiftWrapper = SwiftCLIWrapper.init(swiftCommand: settings.swiftCommand,
                                                 outputCapturing: outputCapturing,
                                                 helpActionHandler: swiftHelpAction)
 
@@ -230,7 +285,7 @@ public enum DSwiftApp {
         // is synchronized as well as can be captured
         // by any output capturing buffers for debuging
         // purposes
-        console = Console(canPrintVerbose: settings.isVerbose,
+        console = Console(canPrintVerbose: settings.isVerbose || isVerboseOutput,
                           canPrintDebug: isDebugOutput,
                           printOut: {
                                 swiftWrapper.cli.print($0,

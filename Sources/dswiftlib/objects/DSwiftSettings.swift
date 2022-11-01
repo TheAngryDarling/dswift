@@ -29,6 +29,7 @@ public struct DSwiftSettings {
     }
     public enum CodingKeys: String, CodingKey {
         case swiftPath
+        case swiftCommand
         case xcodeResourceSorting
         case license
         case readme
@@ -533,8 +534,18 @@ public struct DSwiftSettings {
     
     /// The default swift path
     public static let defaultSwiftPath: FSPath = FSPath("/usr/bin/swift")
+    /// The default swift command
+    public static let defaultSwiftCommand: CLICommand = .init(executable: defaultSwiftPath)
+    /// The command for swift to use (Default: DSwiftSettings.defaultSwiftCommand)
+    public var swiftCommand: CLICommand
     /// The path to the swift to use (Default: DSwiftSettings.defaultSwiftPath)
-    public var swiftPath: FSPath
+    @available(*, deprecated, message: "Moved to swiftCommand")
+    public var swiftPath: FSPath {
+        get { return self.swiftCommand.executable }
+        set {
+            self.swiftCommand = .init(newValue)
+        }
+    }
     /// Indictor if the Xcode Project structure should be sorted or not
     public let xcodeResourceSorting: XcodeProjectFileResourceSorting
     /// License settings
@@ -581,7 +592,7 @@ public struct DSwiftSettings {
     
     /// Create new DSwift Settings Object with default values
     public init() {
-        self.swiftPath = DSwiftSettings.defaultSwiftPath
+        self.swiftCommand = DSwiftSettings.defaultSwiftCommand
         self.xcodeResourceSorting = .none
         self.license = .none
         self.readme = ReadMe()
@@ -606,11 +617,19 @@ extension DSwiftSettings: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         #if NO_DSWIFT_PARAMS
-        self.swiftPath = DSwiftSettings.defaultSwiftPath
+        self.swiftCommand = DSwiftSettings.defaultSwiftCommand
         #else
-        self.swiftPath = try container.decodeIfPresent(FSPath.self,
-                                                       forKey: .swiftPath,
-                                                       withDefaultValue: DSwiftSettings.defaultSwiftPath)
+        if let p = try container.decodeIfPresent(FSPath.self,
+                                                 forKey: .swiftPath) {
+            self.swiftCommand = .init(p)
+        } else if let c = try container.decodeIfPresent(CLICommand.self,
+                                                        forKey: .swiftPath) {
+            self.swiftCommand = c
+        } else {
+            self.swiftCommand = try container.decodeIfPresent(CLICommand.self,
+                                                       forKey: .swiftCommand,
+                                                              withDefaultValue: DSwiftSettings.defaultSwiftCommand)
+        }
         #endif
         self.xcodeResourceSorting = try container.decodeIfPresent(XcodeProjectFileResourceSorting.self,
                                                                   forKey: .xcodeResourceSorting,
@@ -711,9 +730,15 @@ extension DSwiftSettings: Codable {
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.swiftPath,
-                             forKey: .swiftPath,
-                             ifNot: DSwiftSettings.defaultSwiftPath)
+        if self.swiftCommand.arguments.isEmpty {
+            try container.encode(self.swiftCommand.executable,
+                                 forKey: .swiftPath,
+                                 ifNot: DSwiftSettings.defaultSwiftPath)
+        } else {
+            try container.encode(self.swiftCommand,
+                                 forKey: .swiftCommand,
+                                 ifNot: DSwiftSettings.defaultSwiftCommand)
+        }
         try container.encode(self.xcodeResourceSorting,
                              forKey: .xcodeResourceSorting)
         try container.encode(self.license,
@@ -1184,7 +1209,7 @@ extension DSwiftSettings.Usability: Equatable {
 extension DSwiftSettings: Equatable {
     public static func ==(lhs: DSwiftSettings,
                           rhs: DSwiftSettings) -> Bool {
-        return lhs.swiftPath == rhs.swiftPath &&
+        return lhs.swiftCommand == rhs.swiftCommand &&
         lhs.xcodeResourceSorting == rhs.xcodeResourceSorting &&
         lhs.license == rhs.license &&
         lhs.readme == rhs.readme &&

@@ -25,7 +25,7 @@ extension Commands {
                                        _ userInfo: [String: Any],
                                        _ stackTrace: CLIStackTrace) throws -> Int32 {
         self.console.printVerbose("Loading package details", object: self)
-        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath,
+        let packageDetails = try PackageDescription(swiftCommand: settings.swiftCommand,
                                                     packagePath: self.currentProjectPath,
                                                     loadDependencies: false,
                                                     console: self.console)
@@ -69,7 +69,7 @@ extension Commands {
             do {
                 
                 // Get the package name
-                let pkgDetails = try PackageDescription(swiftPath: settings.swiftPath,
+                let pkgDetails = try PackageDescription(swiftCommand: settings.swiftCommand,
                                                         packagePath: self.currentProjectPath,
                                                         loadDependencies: false,
                                                         console: self.console)
@@ -149,7 +149,7 @@ extension Commands {
         
         var returnCode: Int32 = 0
         self.console.printVerbose("Loading package details", object: self)
-        let packageDetails = try PackageDescription(swiftPath: settings.swiftPath,
+        let packageDetails = try PackageDescription(swiftCommand: settings.swiftCommand,
                                                     packagePath: self.currentProjectPath,
                                                     loadDependencies: false,
                                                     console: self.console)

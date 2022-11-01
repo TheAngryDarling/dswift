@@ -660,7 +660,7 @@ let package = Package(
             throw Errors.unableToReadSTDOut
         }
         
-        let modulePathLines = modulePathStr.split(separator: "\n").map(String.init)
+        let modulePathLines = modulePathStr.replacingOccurrences(of: "\r\n", with: "\n").split(separator: "\n").map(String.init)
         modulePathStr = modulePathLines[modulePathLines.count - 1]
         
         return FSPath(modulePathStr)
@@ -668,6 +668,7 @@ let package = Package(
     }
     
     private func runModule(atPath path: FSPath,
+                           module: String,
                            havingOutputEncoding encoding: String.Encoding,
                            using fileManager: FileManager) throws -> String {
         self.console.printVerbose("Running module generator \(path)", object: self)
@@ -676,11 +677,13 @@ let package = Package(
         let outputFile = workingFolder.appendingComponent("swift.out")
         defer { try? outputFile.remove(using: fileManager) }
         
-        let cli = CLICapture(executable: path.url)
-        
-        let runResponse = try cli.waitAndCaptureStringResponse(arguments: [outputFile.string],
-                                                               currentDirectory: workingFolder.url,
-                                                               outputOptions: .captureAll)
+        let runResponse = try self.swiftCLI.waitAndCaptureStringResponse(arguments: [
+                                                                            "run",
+                                                                             module,
+                                                                             outputFile.string
+                                                                         ],
+                                                                         currentDirectory: workingFolder.url,
+                                                                         outputOptions: .captureAll)
         
         
         if runResponse.exitStatusCode != 0 {
@@ -722,6 +725,7 @@ let package = Package(
         
         self.console.printVerbose("Running module for '\(sourcePath.lastComponent)'", object: self)
         let src = try self.runModule(atPath: modulePath.appendingComponent(mod.moduleName),
+                                     module: mod.moduleName,
                                      havingOutputEncoding: mod.sourceEncoding,
                                      using: fileManager)
         return (source: src, encoding: mod.sourceEncoding)

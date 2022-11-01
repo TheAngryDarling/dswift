@@ -65,6 +65,28 @@ public class SwiftCLIWrapper: CLIWrapper {
     
     
     private let swiftVersionRegEx: RegEx = "Swift version ([1-9][0-9]*(\\.[1-9][0-9]*){0,2})"
+    
+    /// Create new Swift Wrapper object
+    /// - Parameters:
+    ///  - swiftURL: The Swift Command
+    ///  - outputLock: The queue to use to execute output actions in sequential order
+    ///  - helpArguments: An array of arguments that can be used to call the help screen
+    ///  - helpAction: Handler to handle help parameters
+    ///  - outputCapturing: The capturing option to capture data being directed to the output
+    public init(swiftCommand: CLICommand,
+                outputLock: Lockable = NSLock(),
+                helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
+                helpAction: HelpAction = .passthrough,
+                outputCapturing: STDOutputCapturing? = nil) {
+        
+        super.init(outputLock: outputLock,
+                   supportPreCommandArguments: true,
+                   helpArguments: helpArguments,
+                   helpAction: helpAction,
+                   outputCapturing: outputCapturing,
+                   createCLIProcess: SwiftCLIWrapper.newSwiftProcessMethod(swiftCommand: swiftCommand))
+    }
+    
     /// Create new Swift Wrapper object
     /// - Parameters:
     ///  - swiftURL: The path to the swift executable
@@ -88,6 +110,64 @@ public class SwiftCLIWrapper: CLIWrapper {
     
     /// Create new Swift Wrapper object
     /// - Parameters:
+    ///  - swiftPath: The path to the swift executable
+    ///  - outputLock: The queue to use to execute output actions in sequential order
+    ///  - helpArguments: An array of arguments that can be used to call the help screen
+    ///  - helpAction: Handler to handle help parameters
+    ///  - outputCapturing: The capturing option to capture data being directed to the output
+    public convenience init<Path: FSFullPath>(swiftPath: Path,
+                                              outputLock: Lockable = NSLock(),
+                                              helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
+                                              helpAction: HelpAction = .passthrough,
+                                              outputCapturing: STDOutputCapturing? = nil) {
+        
+        self.init(swiftCommand: .init(swiftPath),
+                  outputLock: outputLock,
+                  helpArguments: helpArguments,
+                  helpAction: helpAction,
+                  outputCapturing: outputCapturing)
+    }
+    
+    /// Create new Swift Wrapper object
+    /// - Parameters:
+    ///  - swiftCommand: The Swift Command
+    ///  - outputLock: The queue to use to execute output actions in sequential order
+    ///  - helpArguments: An array of arguments that can be used to call the help screen
+    ///  - outputCapturing: The capturing option to capture data being directed to the output
+    ///  - helpAction: Handler to handle help parameters
+    public convenience init(swiftCommand: CLICommand,
+                            outputLock: Lockable = NSLock(),
+                            helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
+                            outputCapturing: STDOutputCapturing? = nil,
+                            helpActionHandler: @escaping CLIHelpActionHandler) {
+        self.init(swiftCommand: swiftCommand,
+                  outputLock: outputLock,
+                  helpArguments: helpArguments,
+                  helpAction: .custom(_HelpAction(helpActionHandler)),
+                  outputCapturing: outputCapturing)
+    }
+    
+    /// Create new Swift Wrapper object
+    /// - Parameters:
+    ///  - swiftPath: The patht the the swift executable
+    ///  - outputLock: The queue to use to execute output actions in sequential order
+    ///  - helpArguments: An array of arguments that can be used to call the help screen
+    ///  - outputCapturing: The capturing option to capture data being directed to the output
+    ///  - helpAction: Handler to handle help parameters
+    public convenience init<Path: FSFullPath>(swiftPath: Path,
+                                              outputLock: Lockable = NSLock(),
+                                              helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
+                                              outputCapturing: STDOutputCapturing? = nil,
+                                              helpActionHandler: @escaping CLIHelpActionHandler) {
+        self.init(swiftCommand: .init(swiftPath),
+                  outputLock: outputLock,
+                  helpArguments: helpArguments,
+                  helpAction: .custom(_HelpAction(helpActionHandler)),
+                  outputCapturing: outputCapturing)
+    }
+    
+    /// Create new Swift Wrapper object
+    /// - Parameters:
     ///  - swiftURL: The path to the swift executable
     ///  - outputLock: The queue to use to execute output actions in sequential order
     ///  - helpArguments: An array of arguments that can be used to call the help screen
@@ -105,7 +185,84 @@ public class SwiftCLIWrapper: CLIWrapper {
                   outputCapturing: outputCapturing)
     }
     
-    public static func newSwiftProcessMethod(swiftURL: URL) -> (_ arguments: [String],
+    /// Create new Swift Wrapper object
+    /// - Parameters:
+    ///  - swiftPath: The path to the swift executable
+    ///  - outputLock: The queue to use to execute output actions in sequential order
+    ///  - helpArguments: An array of arguments that can be used to call the help screen
+    ///  - helpAction: Handler to handle help parameters
+    ///  - outputCapturing: The capturing option to capture data being directed to the output
+    public convenience init(swiftPath: String,
+                            outputLock: Lockable = NSLock(),
+                            helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
+                            helpAction: HelpAction = .passthrough,
+                            outputCapturing: STDOutputCapturing? = nil) {
+        self.init(swiftURL: URL(fileURLWithPath: swiftPath),
+                  outputLock: outputLock,
+                  helpArguments: helpArguments,
+                  helpAction: helpAction,
+                  outputCapturing: outputCapturing)
+    }
+    
+    /// Create new Swift Wrapper object
+    /// - Parameters:
+    ///  - swiftPath: The path to the swift executable
+    ///  - outputLock: The queue to use to execute output actions in sequential order
+    ///  - helpArguments: An array of arguments that can be used to call the help screen
+    ///  - outputCapturing: The capturing option to capture data being directed to the output
+    ///  - helpAction: Handler to handle help parameters
+    public convenience init(swiftPath: String,
+                            outputLock: Lockable = NSLock(),
+                            helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
+                            outputCapturing: STDOutputCapturing? = nil,
+                            helpActionHandler: @escaping CLIHelpActionHandler) {
+        self.init(swiftURL: URL(fileURLWithPath: swiftPath),
+                  outputLock: outputLock,
+                  helpArguments: helpArguments,
+                  helpAction: .custom(_HelpAction(helpActionHandler)),
+                  outputCapturing: outputCapturing)
+    }
+    
+    /// Create new Swift Wrapper object
+    /// - Parameters:
+    ///  - swiftPath: The path to the swift executable
+    ///  - outputLock: The queue to use to execute output actions in sequential order
+    ///  - helpArguments: An array of arguments that can be used to call the help screen
+    ///  - helpAction: Handler to handle help parameters
+    ///  - outputCapturing: The capturing option to capture data being directed to the output
+    public convenience init(swiftPath: FSPath,
+                            outputLock: Lockable = NSLock(),
+                            helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
+                            helpAction: HelpAction = .passthrough,
+                            outputCapturing: STDOutputCapturing? = nil) {
+        self.init(swiftURL: swiftPath.url,
+                  outputLock: outputLock,
+                  helpArguments: helpArguments,
+                  helpAction: helpAction,
+                  outputCapturing: outputCapturing)
+    }
+    
+    /// Create new Swift Wrapper object
+    /// - Parameters:
+    ///  - swiftPath: The path to the swift executable
+    ///  - outputLock: The queue to use to execute output actions in sequential order
+    ///  - helpArguments: An array of arguments that can be used to call the help screen
+    ///  - outputCapturing: The capturing option to capture data being directed to the output
+    ///  - helpAction: Handler to handle help parameters
+    public convenience init(swiftPath: FSPath,
+                            outputLock: Lockable = NSLock(),
+                            helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
+                            outputCapturing: STDOutputCapturing? = nil,
+                            helpActionHandler: @escaping CLIHelpActionHandler) {
+        self.init(swiftURL: swiftPath.url,
+                  outputLock: outputLock,
+                  helpArguments: helpArguments,
+                  helpAction: .custom(_HelpAction(helpActionHandler)),
+                  outputCapturing: outputCapturing)
+    }
+    
+    
+    public static func newSwiftProcessMethod(swiftCommand: CLICommand) -> (_ arguments: [String],
                                                                 _ environment: [String: String]?,
                                                                 _ currentDirectory: URL?,
                                                                 _ standardInput: Any?,
@@ -121,9 +278,54 @@ public class SwiftCLIWrapper: CLIWrapper {
              _ stackTrace: CLIStackTrace) -> Process in
             
             let rtn = Process()
-            rtn.executable = swiftURL
-            rtn.arguments = arguments
+            rtn.executable = swiftCommand.executable.url
+            // setup arguments for swift command
+            var workingArguments = swiftCommand.arguments
             
+            var swiftArguments = arguments
+            
+            // if arguments do not contain package-path we will want to add it
+            // unless arguments contains the help or version parameters
+            if !swiftArguments.contains("--package-path") &&
+               !swiftArguments.contains("--version") &&
+               !swiftArguments.contains("-version") &&
+               !swiftArguments.contains("--help") &&
+               !swiftArguments.contains("-help") &&
+                !swiftArguments.contains("--h") &&
+                !swiftArguments.contains("-h") {
+                
+                
+                
+                let commands = ["package", "build", "test", "run"]
+                
+                for cmd in commands {
+                    // we will only insert if the first swift argument
+                    // is one of the sub commands
+                    guard swiftArguments.first?.lowercased() == cmd else {
+                        continue
+                    }
+                    // Find the location of the subcommand argument in the working arguments
+                    // so we have a location to insert the commands
+                    if let idx = swiftArguments.firstIndex(where: { return $0.lowercased() == cmd } ) {
+                        let wd = currentDirectory?.path ?? FileManager.default.currentDirectoryPath
+                        swiftArguments.insert(contentsOf: ["--package-path",
+                                                            wd],
+                                                at: swiftArguments.index(after: idx))
+                        break
+                    }
+                }
+            }
+            // setup arguments for swift itself
+            workingArguments.append(contentsOf: swiftArguments)
+            
+            
+            /*if arguments.contains("run") {
+                var ary: [String] = [swiftCommand.executable.string]
+                ary.append(contentsOf: workingArguments)
+                let cmd = ary.map({ $0.contains(" ") ? "\"\($0)\"" : $0 }).joined(separator: " \\\n")
+                print(cmd)
+            }*/
+            rtn.arguments = workingArguments
             
             var env = environment ?? ProcessInfo.processInfo.environment
             // Do this because having OS_ACTIVITY_DT_MODE set causes
@@ -144,81 +346,27 @@ public class SwiftCLIWrapper: CLIWrapper {
         }
     }
     
-    /// Create new Swift Wrapper object
-    /// - Parameters:
-    ///  - swiftPath: The path to the swift executable
-    ///  - outputLock: The queue to use to execute output actions in sequential order
-    ///  - helpArguments: An array of arguments that can be used to call the help screen
-    ///  - helpAction: Handler to handle help parameters
-    ///  - outputCapturing: The capturing option to capture data being directed to the output
-    public convenience init(swiftPath: String,
-                            outputLock: Lockable = NSLock(),
-                            helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
-                            helpAction: HelpAction = .passthrough,
-                            outputCapturing: STDOutputCapturing? = nil) {
-        self.init(swiftURL: URL(fileURLWithPath: swiftPath),
-                  outputLock: outputLock,
-                  helpArguments: helpArguments,
-                  helpAction: helpAction,
-                  outputCapturing: outputCapturing)
+    public static func newSwiftProcessMethod<Path: FSFullPath>(swiftPath: Path) -> (_ arguments: [String],
+                                                                _ environment: [String: String]?,
+                                                                _ currentDirectory: URL?,
+                                                                _ standardInput: Any?,
+                                                                _ userInfo: [String: Any],
+                                                                _ stackTrace: CLIStackTrace) -> Process {
+        
+        return SwiftCLIWrapper.newSwiftProcessMethod(swiftCommand: .init(swiftPath))
     }
     
-    /// Create new Swift Wrapper object
-    /// - Parameters:
-    ///  - swiftPath: The path to the swift executable
-    ///  - outputLock: The queue to use to execute output actions in sequential order
-    ///  - helpArguments: An array of arguments that can be used to call the help screen
-    ///  - outputCapturing: The capturing option to capture data being directed to the output
-    ///  - helpAction: Handler to handle help parameters
-    public convenience init(swiftPath: String,
-                            outputLock: Lockable = NSLock(),
-                            helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
-                            outputCapturing: STDOutputCapturing? = nil,
-                            helpActionHandler: @escaping CLIHelpActionHandler) {
-        self.init(swiftURL: URL(fileURLWithPath: swiftPath),
-                  outputLock: outputLock,
-                  helpArguments: helpArguments,
-                  helpAction: .custom(_HelpAction(helpActionHandler)),
-                  outputCapturing: outputCapturing)
+    public static func newSwiftProcessMethod(swiftURL: URL) -> (_ arguments: [String],
+                                                                _ environment: [String: String]?,
+                                                                _ currentDirectory: URL?,
+                                                                _ standardInput: Any?,
+                                                                _ userInfo: [String: Any],
+                                                                _ stackTrace: CLIStackTrace) -> Process {
+        
+        return SwiftCLIWrapper.newSwiftProcessMethod(swiftCommand: .init(executableURL: swiftURL))
     }
     
-    /// Create new Swift Wrapper object
-    /// - Parameters:
-    ///  - swiftPath: The path to the swift executable
-    ///  - outputLock: The queue to use to execute output actions in sequential order
-    ///  - helpArguments: An array of arguments that can be used to call the help screen
-    ///  - helpAction: Handler to handle help parameters
-    ///  - outputCapturing: The capturing option to capture data being directed to the output
-    public convenience init(swiftPath: FSPath,
-                            outputLock: Lockable = NSLock(),
-                            helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
-                            helpAction: HelpAction = .passthrough,
-                            outputCapturing: STDOutputCapturing? = nil) {
-        self.init(swiftURL: swiftPath.url,
-                  outputLock: outputLock,
-                  helpArguments: helpArguments,
-                  helpAction: helpAction,
-                  outputCapturing: outputCapturing)
-    }
     
-    /// Create new Swift Wrapper object
-    /// - Parameters:
-    ///  - swiftPath: The path to the swift executable
-    ///  - outputLock: The queue to use to execute output actions in sequential order
-    ///  - helpArguments: An array of arguments that can be used to call the help screen
-    ///  - outputCapturing: The capturing option to capture data being directed to the output
-    ///  - helpAction: Handler to handle help parameters
-    public convenience init(swiftPath: FSPath,
-                            outputLock: Lockable = NSLock(),
-                            helpArguments: [String] = SwiftCLIWrapper.DefaultHelpArguments,
-                            outputCapturing: STDOutputCapturing? = nil,
-                            helpActionHandler: @escaping CLIHelpActionHandler) {
-        self.init(swiftURL: swiftPath.url,
-                  outputLock: outputLock,
-                  helpArguments: helpArguments,
-                  helpAction: .custom(_HelpAction(helpActionHandler)),
-                  outputCapturing: outputCapturing)
-    }
     
     /// Get the current version of Swift
     public func getVersion() throws -> Version.SingleVersion {

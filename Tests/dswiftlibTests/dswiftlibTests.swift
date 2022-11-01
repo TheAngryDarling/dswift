@@ -35,6 +35,118 @@ extension Character {
     }
 }
 
+private struct IDCLI {
+    
+    private static func buildProcess(arguments: [String] = [],
+                                     environment: [String: String] = ProcessInfo.processInfo.environment) -> Process {
+        let idProcess = Process()
+        idProcess.executable = URL(fileURLWithPath: "/usr/bin/id")
+        idProcess.arguments = arguments
+        idProcess.environment = environment
+        
+        return idProcess
+        
+    }
+    
+    private static func grapSTDOut(_ pipe: Pipe) -> String? {
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard var outputString = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        outputString = outputString.replacingOccurrences(of: "\r\n", with: "\n")
+        while outputString.hasSuffix("\n") {
+            outputString.removeLast()
+        }
+        return outputString
+    }
+    public static func getUserID() -> Int? {
+        let process = IDCLI.buildProcess(arguments: ["-u"])
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        do {
+            try process.execute()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                return nil
+            }
+            guard let outputString = IDCLI.grapSTDOut(pipe) else {
+                return nil
+            }
+            
+            guard let uid = Int(outputString) else {
+                return nil
+            }
+            return uid
+        } catch {
+            return nil
+        }
+    }
+    public static func getUserName() -> String? {
+        let process = IDCLI.buildProcess(arguments: ["-u", "-n"])
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        do {
+            try process.execute()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                return nil
+            }
+            guard let outputString = IDCLI.grapSTDOut(pipe) else {
+                return nil
+            }
+            return outputString
+        } catch {
+            return nil
+        }
+    }
+    
+    public static func getGroupID() -> Int? {
+        let process = IDCLI.buildProcess(arguments: ["-g"])
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        do {
+            try process.execute()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                return nil
+            }
+            guard let outputString = IDCLI.grapSTDOut(pipe) else {
+                return nil
+            }
+            
+            guard let uid = Int(outputString) else {
+                return nil
+            }
+            return uid
+        } catch {
+            return nil
+        }
+    }
+    
+    public static func getGroupName() -> String? {
+        let process = IDCLI.buildProcess(arguments: ["-g", "-n"])
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        do {
+            try process.execute()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else {
+                return nil
+            }
+            guard let outputString = IDCLI.grapSTDOut(pipe) else {
+                return nil
+            }
+            return outputString
+        } catch {
+            return nil
+        }
+    }
+}
+
 class dswiftlibTests: XCExtenedTestCase {
     
     override class func setUp() {
@@ -559,13 +671,21 @@ class dswiftlibTests: XCExtenedTestCase {
         
         XCTAssertEqual(FSSafePath(testFilePath).deletingExtension().string,
                        NSString(string: testFilePath).deletingPathExtension)
-        
+        #if _runtime(_ObjC)
         XCTAssertEqual(FSPath(testFilePath).appendingExtension("").string,
                        NSString(string: testFilePath).appendingPathExtension(""))
         XCTAssertEqual(FSSafePath(testFilePath).appendingExtension("").string,
                        NSString(string: testFilePath).appendingPathExtension(""))
         XCTAssertEqual(FSRelativePath(testFilePath).appendingExtension("").string,
                        NSString(string: testFilePath).appendingPathExtension(""))
+        #else
+        XCTAssertEqual(FSPath(testFilePath).appendingExtension("").string + ".",
+                       NSString(string: testFilePath).appendingPathExtension(""))
+        XCTAssertEqual(FSSafePath(testFilePath).appendingExtension("").string + ".",
+                       NSString(string: testFilePath).appendingPathExtension(""))
+        XCTAssertEqual(FSRelativePath(testFilePath).appendingExtension("").string + ".",
+                       NSString(string: testFilePath).appendingPathExtension(""))
+        #endif
         
         XCTAssertEqual(FSPath(testFilePath).appendingExtension(".newExt").string,
                        NSString(string: testFilePath).appendingPathExtension(".newExt"))
@@ -580,7 +700,7 @@ class dswiftlibTests: XCExtenedTestCase {
     }
     
     func testPackageLoads() {
-        let swiftPath = "/usr/bin/swift"
+        let swiftPath = DSwiftSettings.defaultSwiftPath.string
         let arguments = ["package", "describe", "--type", "json"]
         let projectDir = self.projectURL
         
@@ -1306,7 +1426,7 @@ I hope that this works
             return resp.exitStatusCode
         }
         let buffer = CLICapture.STDOutputBuffer()
-        let dswift = SwiftCLIWrapper.init(swiftPath: "/usr/bin/swift",
+        let dswift = SwiftCLIWrapper.init(swiftPath: DSwiftSettings.defaultSwiftPath,
                                           outputCapturing: .capture(using: buffer),
                                           helpActionHandler: swiftHelpTextReplacement)
         
@@ -1318,7 +1438,11 @@ I hope that this works
 
     }
     
-    func testSwiftCommands() {
+    /// Run the test app for the given swift command
+    /// - Parameter generateSwiftCommandArgs: Callback method used to generate the dswift arguments used setup the swift command.  This callback provides the path to the current project directory.  When mapping for containers, the project directory must be mapped as well as the NSTemporaryDirectory()
+    func _testDSwiftCommands(_ generateSwiftCommandArgs: (_ projectDir: FSPath) -> [String] = { _ in return [] }) {
+        
+        
         var appName: String = "TestSwiftApp"
         let fileManager = FileManager.default
         let tempFolderBase = FSPath.tempDir
@@ -1338,6 +1462,9 @@ I hope that this works
             appName = tmpFolder.lastComponent
         }
         
+        var workingSwiftCommand = generateSwiftCommandArgs(tmpFolder)
+        workingSwiftCommand.insert("dswift", at: 0)
+        
         let outputBuffer = CLICapture.STDOutputBuffer()
         do {
             if !tmpFolder.exists(using: fileManager) {
@@ -1347,7 +1474,7 @@ I hope that this works
             
             fileManager.changeCurrentDirectoryPath(tmpFolder.string)
             guard DSwiftApp.execute(outputCapturing: .capture(using: outputBuffer),
-                                    arguments: ["dswift",
+                                    arguments: workingSwiftCommand + [
                                                 "package",
                                                 "init",
                                                 "--type",
@@ -1381,7 +1508,7 @@ I hope that this works
             do {
                 try mainSwiftFile.remove(using: fileManager)
             } catch {
-                XCTFail("Failed to remove default main: \(error)")
+                XCTFail("Failed to remove default main(\(mainSwiftFile.string): \(error)")
                 return
             }
             
@@ -1423,7 +1550,7 @@ I hope that this works
             
             
             guard DSwiftApp.execute(outputCapturing: .capture(using: outputBuffer),
-                                    arguments: ["dswift",
+                                    arguments: workingSwiftCommand + [
                                                 "build",
                                                 "-Xswiftc",
                                                 "-DDOCKER_BUILD"]) == 0 else {
@@ -1436,57 +1563,232 @@ I hope that this works
                 return
             }
             
+            let generatedSwiftFile = appSourceFolder.appendingComponent("testapp_dswift.swift")
+            XCTAssertTrue(generatedSwiftFile.exists(using: fileManager),
+                          "Generated swift file '\(generatedSwiftFile.string)' does not exist")
+            
             /// Empty buffer between each call
             outputBuffer.empty()
             
             guard DSwiftApp.execute(outputCapturing: .capture(using: outputBuffer),
-                                    arguments: ["dswift",
-                                                "build",
-                                                "-Xswiftc",
-                                                "-DDOCKER_BUILD",
-                                                "--show-bin-path"]) == 0 else {
+                                   arguments: workingSwiftCommand + ["run",
+                                                                     appName]) == 0 else {
                 var msg: String = ""
                 let dta = outputBuffer.readBuffer()
                 if let path = String(data: dta, encoding: .utf8) {
                     msg = path
                 }
-                XCTFail("Failed to get build path:\n\(msg)")
+                XCTFail("Failed to run test app:\n\(msg)")
                 return
             }
             
-            /// Empty buffer between each call
-            let dta = outputBuffer.out.readBuffer()
-            outputBuffer.empty()
-            guard var path = String(data: dta, encoding: .utf8) else {
-                XCTFail("Unable to read output from getting build path")
+            guard let out = String(data: outputBuffer.out.readBuffer(), encoding: .utf8) else {
+                XCTFail("No Output from test app")
                 return
             }
-            path = path.replacingOccurrences(of: "\r\n", with: "")
-                .replacingOccurrences(of: "\n", with: "")
             
-            let appPath = NSString(string: path).appendingPathComponent(appName)
+            XCTAssertTrue(out.contains("Hello World"))
+            XCTAssertTrue(out.contains("Code Execution took"))
             
-            do {
-                let resp = try CLICapture(executable: URL(fileURLWithPath: appPath)).waitAndCaptureStringResponse()
-                
-                guard let out = resp.out else {
-                    XCTFail("No Output from test app")
-                    return
-                }
-                
-                XCTAssertTrue(out.contains("Hello World"))
-                XCTAssertTrue(out.contains("Code Execution took"))
-                
-                XCTAssertTrue(out.contains("This is content from the included file"))
-                XCTAssertTrue(out.contains("This is content from the included folder file"))
-                
-            } catch {
-                XCTFail("Failed to execute test app: \(error)")
-                return
-            }
+            XCTAssertTrue(out.contains("This is content from the included file"))
+            XCTAssertTrue(out.contains("This is content from the included folder file"))
+            
             
         } catch {
             XCTFail("Error: \(error)")
+        }
+    }
+    
+    func testSwiftCommands() {
+        _testDSwiftCommands()
+    }
+    
+    func testDSwiftCommands() {
+        
+        _testDSwiftCommands() { path in
+            return ["---",
+                    "--swiftPath",
+                    DSwiftSettings.defaultSwiftPath.string,
+                    "---"]
+        }
+    }
+    
+    func testDockerDSwiftCommands() {
+        
+        struct UserInfo {
+            public let userId: Int
+            public let userName: String
+            public let groupId: Int
+            public let groupName: String
+        }
+        
+        #if os(Windows)
+        // this section is currently not supported
+        let pathSeperator: Character = ";"
+        let dirSeperator: String = "\\"
+        let dockerCommand: String = "docker.exe"
+        #else
+        let pathSeperator: Character = ":"
+        let dirSeperator: String = "/"
+        let dockerCommand: String = "docker"
+        #endif
+        var paths = ProcessInfo.processInfo.environment["PATH", default: ""].split(separator: pathSeperator).map(String.init)
+        
+        if dirSeperator == "/" && !paths.contains("/usr/local/bin") {
+            paths.append("/usr/local/bin")
+        }
+        
+        var dockerPath: String? = nil
+        let fileManager = FileManager.default
+        
+        for var path in paths {
+            if path.hasSuffix(dirSeperator) {
+                path.removeLast()
+            }
+            let testDockerPath = String(path + dirSeperator + dockerCommand)
+            if fileManager.fileExists(atPath: testDockerPath),
+               fileManager.isExecutableFile(atPath: testDockerPath) {
+                dockerPath = testDockerPath
+            }
+            
+        }
+        
+        guard let dp = dockerPath else {
+            print("WARNING: Unable to test testDockerDSwiftCommands because Docker not found")
+            return
+        }
+        
+        // Test if docker is running
+        let dockerStatusProcess = Process()
+        // setup path to docker executable
+        dockerStatusProcess.executable = URL(fileURLWithPath: dp)
+        // add arguments (simple command to test if it fails)
+        dockerStatusProcess.arguments = ["stats", "--no-stream"]
+        // setup pipe to capture all output and stop if from going
+        // to the stdout.  We will ignore the output
+        let dockerStatusProcessNullPipe = Pipe()
+        dockerStatusProcess.standardOutput = dockerStatusProcessNullPipe
+        dockerStatusProcess.standardError = dockerStatusProcessNullPipe
+        // Run the executable
+        guard XCTAssertsNoThrow(try dockerStatusProcess.execute()) else {
+            return
+        }
+        // wait for it to finish
+        dockerStatusProcess.waitUntilExit()
+        // make sure it ran successfully.  If failed
+        // lets fail the test
+        guard dockerStatusProcess.terminationStatus == 0 else {
+            XCTFail("Docker not running")
+            return
+        }
+        // Lets try and get the current user id number
+        // for mapping into docker
+        let userId = IDCLI.getUserID()
+        
+        if userId == nil {
+            print("WARNING: Unable to get current user id")
+        }
+        
+        _testDSwiftCommands() { path in
+            /*
+             Required Volumes to map into docker with the same as real path
+                1: FSPath.tempDir (And if is symlink also real path)
+                    This location is used to create sub folders to generate swift
+                2: Path to project or a parent folder of the project
+            */
+            
+            // Setup dswift swift command begin
+            var rtn: [String] = ["---",
+                                 "--swiftCommandBegin"]
+            
+            // Setup Docker Swift Container Command start
+            rtn.append(contentsOf: [
+                                 // Path to docker
+                                 dp,
+                                 // run container
+                                 "run",
+                                 // name container dswift-(folder name)-(random characters)
+                                 "--name",
+                                 "dswift-\(path.lastComponent)-\(String.randomAlphaNumericString(count: 8))",
+                                 // remove container after exit
+                                 "--rm",
+                                 "-t",
+                                 // setup extra privileges
+                                 "--cap-add=SYS_PTRACE",
+                                 "--security-opt",
+                                 "seccomp=unconfined"
+                                 ])
+            
+            // Setup Mapped Volumes
+            var mappedDirs: [FSPath] = []
+            
+            func mapPath(_ pth: FSPath) {
+                
+                // see if path is already mapped or is a child path of a previously
+                // mapepd volume
+                if !mappedDirs.contains(pth) &&
+                   !mappedDirs.contains(where: { return pth.isChildPath(of: $0) }) {
+                    // Map path into the docker container
+                    rtn.append(contentsOf: ["-v",
+                                            "\(pth.string):\(pth.string)"])
+                    // Save the mapped path for reference
+                    // for any additional paths to map
+                    mappedDirs.append(pth)
+                    
+                }
+               
+                // safe the current directory
+                let oldDir = fileManager.currentDirectoryPath
+                // change the current directory to the pth directory
+                fileManager.changeCurrentDirectoryPath(pth.string)
+                // check to see if path was symbolic link
+                if fileManager.currentDirectoryPath != pth.string {
+                    // Path was a symbolic link,  mapping real path into docker container
+                    let realPath = FSPath(fileManager.currentDirectoryPath)
+                    // make sure the real path is not a previously mapped path or
+                    // a child path of a previously mapped path
+                    if !mappedDirs.contains(realPath) &&
+                       !mappedDirs.contains(where: { return realPath.isChildPath(of: $0) }) {
+                        // Map the path into the docker container
+                        rtn.append(contentsOf: ["-v",
+                                                "\(realPath.string):\(realPath.string)"])
+                        // Save the mapped path for reference
+                        // for any additional paths to map
+                        mappedDirs.append(realPath)
+                    }
+                }
+                // change the current directory back to original
+                fileManager.changeCurrentDirectoryPath(oldDir)
+                
+            }
+            
+            // Map temp folder
+            mapPath(FSPath.tempDir)
+            // Map path to test project
+            mapPath(path)
+            
+            if let uid = userId {
+                // add docker arguments to specify the
+                // user id to use instead of root(0)
+                //
+                // This helps when dockerd is running
+                // in root but you want any files that the
+                // container generates to be accessable by
+                // the current user
+                rtn.append(contentsOf: [
+                    "-u",
+                    "\(uid)"
+                ])
+            }
+            // Add Docker Image/tag to use for the container
+            rtn.append("swift:4.0")
+            // Add the command to execute within the docker container
+            rtn.append("swift")
+            
+            // append ending dswift arguments
+            rtn.append(contentsOf: ["--swiftCommandEnd",
+                                    "---"])
+            return rtn
         }
     }
 
@@ -1503,7 +1805,9 @@ I hope that this works
         ("testDSwiftIncludeFolderFile", testDSwiftIncludeFolderFile),
         ("testDSwiftIncludePackageFile", testDSwiftIncludePackageFile),
         ("testDSwiftCommandCaptureHelp", testDSwiftCommandCaptureHelp),
-        ("testSwiftCommands", testSwiftCommands)
+        ("testSwiftCommands", testSwiftCommands),
+        ("testDSwiftCommands", testDSwiftCommands),
+        ("testDockerDSwiftCommands", testDockerDSwiftCommands)
     ]
 }
 

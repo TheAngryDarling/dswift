@@ -306,7 +306,7 @@ extension Commands {
         
         repeat {
             do {
-                pkgDetails = try PackageDescription(swiftPath: settings.swiftPath,
+                pkgDetails = try PackageDescription(swiftCommand: settings.swiftCommand,
                                                     packagePath: self.currentProjectPath,
                                                     loadDependencies: true,
                                                     console: console)
@@ -447,7 +447,7 @@ extension Commands {
         
         do {
            self.console.printVerbose("Loading package details", object: self)
-           let packageDetails = try PackageDescription(swiftPath: settings.swiftPath,
+           let packageDetails = try PackageDescription(swiftCommand: settings.swiftCommand,
                                                        packagePath: currentDir,
                                                        loadDependencies: false,
                                                        console: self.console)

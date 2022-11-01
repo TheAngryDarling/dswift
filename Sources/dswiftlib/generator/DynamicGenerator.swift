@@ -140,31 +140,52 @@ public extension DynamicGenerator {
     
     
     /// Initializer for creating a new generator
-    init(swiftPath: FSPath,
+    init(swiftCommand: CLICommand,
          dswiftInfo: DSwiftInfo,
          console: Console) throws {
         
-        if !swiftPath.exists() {
-            throw DynamicSourceCodeGenerator.Errors.missingSwift(atPath: swiftPath.string)
+        if !swiftCommand.executable.exists() {
+            throw DynamicSourceCodeGenerator.Errors.missingSwift(atPath: swiftCommand.executable.string)
         }
         
         let swiftCLI = CLICapture.init(outputLock: Console.sharedOutputLock,
-                                       createProcess: SwiftCLIWrapper.newSwiftProcessMethod(swiftURL: swiftPath.url))
+                                       createProcess: SwiftCLIWrapper.newSwiftProcessMethod(swiftCommand: swiftCommand))
         
         try self.init(swiftCLI: swiftCLI,
                       dswiftInfo: dswiftInfo,
                       console: console)
     }
     
+    /// Initializer for creating a new generator
+    init(swiftPath: FSPath,
+         dswiftInfo: DSwiftInfo,
+         console: Console) throws {
+        
+        try self.init(swiftCommand: .init(executable: swiftPath),
+                      dswiftInfo: dswiftInfo,
+                      console: console)
+    }
+    
     init(dswiftInfo: DSwiftInfo,
          console: Console = .null) throws {
-        try self.init(swiftPath: DSwiftSettings.defaultSwiftPath,
+        try self.init(swiftCommand: DSwiftSettings.defaultSwiftCommand,
                       dswiftInfo: dswiftInfo,
                       console: console)
     }
     
     func generatedFilePath(for source: FSPath,
                            using fileManager: FileManager) throws -> FSPath {
+        // PATCH:
+        //
+        // There was a bug in DSwift Version 2.0.1 where calling .deleteExtension()
+        // would not remove the file extension and would result in .dswift.swift files
+        // This will check to see if they exist and if so will use that file instead
+        // of just .swift to ensure that any git commits with the extension
+        // .dswift.swift will stay
+        let problemPath = source.appendingExtension("swift")
+        if problemPath.exists(using: fileManager) {
+            return problemPath
+        }
         return source.deletingExtension().appendingExtension("swift")
     }
     
