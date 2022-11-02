@@ -1356,7 +1356,7 @@ I hope that this works
                                       _ currentDirectory: URL?,
                                       _ standardInput: Any?,
                                       _ userInfo: [String: Any],
-                                      _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                      _ stackTrace: CodeStackTrace) throws -> Int32 {
             let resp = try parent.cli.waitAndCaptureStringResponse(arguments: arguments,
                                                                    outputOptions: .captureAll,
                                                                    userInfo: userInfo,

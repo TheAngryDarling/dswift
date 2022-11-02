@@ -11,7 +11,7 @@ import VersionKit
 import XcodeProj
 import RegEx
 import CLIWrapper
-import struct CLICapture.CLIStackTrace
+import struct CLICapture.CodeStackTrace
 import PathHelpers
 
 public enum DSwiftApp {
@@ -187,7 +187,7 @@ public enum DSwiftApp {
                              currentDirectory: URL?,
                              withMessage message: String? = nil,
                              userInfo: [String: Any],
-                             stackTrace: CLIStackTrace) throws -> Int32 {
+                             stackTrace: CodeStackTrace) throws -> Int32 {
             if let m = message {
                 console.print(m)
             }
@@ -355,7 +355,7 @@ public enum DSwiftApp {
                      _ currentDirectory: URL?,
                      _ standardInput: Any?,
                      _ userInfo: [String: Any],
-                     _ stackTrace: CLIStackTrace) throws -> Int32 in
+                     _ stackTrace: CodeStackTrace) throws -> Int32 in
                     
                     return try swiftHelpAction(parent: parent,
                                                argumentStartingAt: argumentStartingAt,

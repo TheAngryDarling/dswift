@@ -11,7 +11,7 @@ import Dispatch
 import RegEx
 import VersionKit
 import CLIWrapper
-import struct CLICapture.CLIStackTrace
+import struct CLICapture.CodeStackTrace
 import PathHelpers
 
 
@@ -48,7 +48,7 @@ public class SwiftCLIWrapper: CLIWrapper {
                      currentDirectory: URL?,
                      withMessage message: String?,
                      userInfo: [String: Any],
-                     stackTrace: CLIStackTrace) throws -> Int32 {
+                     stackTrace: CodeStackTrace) throws -> Int32 {
             return try self.handler(parent,
                                     argumentStartingAt,
                                     arguments,
@@ -267,7 +267,7 @@ public class SwiftCLIWrapper: CLIWrapper {
                                                                 _ currentDirectory: URL?,
                                                                 _ standardInput: Any?,
                                                                 _ userInfo: [String: Any],
-                                                                _ stackTrace: CLIStackTrace) -> Process {
+                                                                _ stackTrace: CodeStackTrace) -> Process {
         
         return {
             (_ arguments: [String],
@@ -275,7 +275,7 @@ public class SwiftCLIWrapper: CLIWrapper {
              _ currentDirectory: URL?,
              _ standardInput: Any?,
              _ userInfo: [String: Any],
-             _ stackTrace: CLIStackTrace) -> Process in
+             _ stackTrace: CodeStackTrace) -> Process in
             
             let rtn = Process()
             rtn.executable = swiftCommand.executable.url
@@ -351,7 +351,7 @@ public class SwiftCLIWrapper: CLIWrapper {
                                                                 _ currentDirectory: URL?,
                                                                 _ standardInput: Any?,
                                                                 _ userInfo: [String: Any],
-                                                                _ stackTrace: CLIStackTrace) -> Process {
+                                                                _ stackTrace: CodeStackTrace) -> Process {
         
         return SwiftCLIWrapper.newSwiftProcessMethod(swiftCommand: .init(swiftPath))
     }
@@ -361,7 +361,7 @@ public class SwiftCLIWrapper: CLIWrapper {
                                                                 _ currentDirectory: URL?,
                                                                 _ standardInput: Any?,
                                                                 _ userInfo: [String: Any],
-                                                                _ stackTrace: CLIStackTrace) -> Process {
+                                                                _ stackTrace: CodeStackTrace) -> Process {
         
         return SwiftCLIWrapper.newSwiftProcessMethod(swiftCommand: .init(executableURL: swiftURL))
     }

@@ -268,7 +268,7 @@ extension Commands {
                                    _ environment: [String: String]?,
                                    _ currentDirectory: URL?,
                                    _ userInfo: [String: Any],
-                                   _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                   _ stackTrace: CodeStackTrace) throws -> Int32 {
         
         let command = arguments[argumentStartingAt-1].lowercased()
         var isRebuild = false
@@ -434,7 +434,7 @@ extension Commands {
                                         _ currentDirectory: URL?,
                                         _ standardInput: Any?,
                                         _ userInfo: [String: Any],
-                                        _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                        _ stackTrace: CodeStackTrace) throws -> Int32 {
         
         var currentDir = FSPath((currentDirectory ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)).path)
         

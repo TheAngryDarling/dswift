@@ -50,7 +50,7 @@ extension Commands {
                                      _ currentDirectory: URL?,
                                      _ response: CLICapturedStringResponse,
                                      _ userInfo: [String: Any],
-                                     _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                     _ stackTrace: CodeStackTrace) throws -> Int32 {
         let retCode = response.exitStatusCode
         guard settings.regenerateXcodeProject else { return retCode }
         guard retCode == 0 else { return retCode }
@@ -141,7 +141,7 @@ extension Commands {
                                            _ environment: [String: String]?,
                                            _ currentDirectory: URL?,
                                            _ userInfo: [String: Any],
-                                           _ stackTrace: CLIStackTrace,
+                                           _ stackTrace: CodeStackTrace,
                                            _ exitStatusCode: Int32) throws -> Int32 {
         guard exitStatusCode == 0 else { return exitStatusCode }
         guard (arguments.firstIndex(of: "--help") == nil &&
@@ -388,7 +388,7 @@ extension Commands {
                                            _ currentDirectory: URL?,
                                            _ storage: inout [String: Any]?,
                                            _ userInfo: [String: Any],
-                                           _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                           _ stackTrace: CodeStackTrace) throws -> Int32 {
         
         let noDSwift = arguments.contains(where: { $0.lowercased() == "--nodswift" })
         if noDSwift { arguments.removeAll(where: { $0.lowercased() == "--nodswift" }) }
@@ -406,7 +406,7 @@ extension Commands {
                                             _ currentDirectory: URL?,
                                             _ storage: [String: Any]?,
                                             _ userInfo: [String: Any],
-                                            _ stackTrace: CLIStackTrace,
+                                            _ stackTrace: CodeStackTrace,
                                             _ exitStatusCode: Int32) throws -> Int32 {
         let noDSwift = ((storage ?? [:])["noDswift"] as? Bool) ?? false
         var exitStatusCode = exitStatusCode
@@ -497,7 +497,7 @@ extension Commands {
                                            _ currentDirectory: URL?,
                                            _ response: CLICapturedStringResponse,
                                            _ userInfo: [String: Any],
-                                           _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                           _ stackTrace: CodeStackTrace) throws -> Int32 {
         guard var out = response.output else {
             return 1
         }
@@ -602,7 +602,7 @@ extension Commands {
                                        _ currentDirectory: URL?,
                                        _ response: CLICapturedStringResponse,
                                           _ userInfo: [String: Any],
-                                          _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                          _ stackTrace: CodeStackTrace) throws -> Int32 {
         guard var out = response.output else {
             return 1
         }
@@ -621,7 +621,7 @@ extension Commands {
                                            _ currentDirectory: URL?,
                                            _ response: CLICapturedStringResponse,
                                            _ userInfo: [String: Any],
-                                           _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                           _ stackTrace: CodeStackTrace) throws -> Int32 {
         guard var out = response.output else {
             return 1
         }
@@ -641,7 +641,7 @@ extension Commands {
                                                 _ currentDirectory: URL?,
                                                 _ response: CLICapturedStringResponse,
                                                 _ userInfo: [String: Any],
-                                                _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                                _ stackTrace: CodeStackTrace) throws -> Int32 {
         
         if arguments.contains(where: { return $0.lowercased() == "bash" } ) {
             
@@ -684,7 +684,7 @@ extension Commands {
                                                  bashFlavour: String,
                                                  zshFlavour: String,
                                                  userInfo: [String: Any],
-                                                 stackTrace: CLIStackTrace) throws -> Int32 {
+                                                 stackTrace: CodeStackTrace) throws -> Int32 {
         if arguments.last == "bash"  {
             var bashProfile: StringFile
             do {
@@ -861,7 +861,7 @@ extension Commands {
                                                                    _ currentDirectory: URL?,
                                                                    _ standardInput: Any?,
                                                                    _ userInfo: [String: Any],
-                                                                   _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                                                   _ stackTrace: CodeStackTrace) throws -> Int32 {
         
         return try commandPackageInstallAutoScript(parent,
                                                    argumentStartingAt,
@@ -884,7 +884,7 @@ extension Commands {
                                                               _ currentDirectory: URL?,
                                                               _ standardInput: Any?,
                                                               _ userInfo: [String: Any],
-                                                              _ stackTrace: CLIStackTrace) throws -> Int32 {
+                                                              _ stackTrace: CodeStackTrace) throws -> Int32 {
         
         return try commandPackageInstallAutoScript(parent,
                                                    argumentStartingAt,

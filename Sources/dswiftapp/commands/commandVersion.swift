@@ -7,7 +7,7 @@
 
 import Foundation
 import CLIWrapper
-import struct CLICapture.CLIStackTrace
+import struct CLICapture.CodeStackTrace
 
 
 extension Commands {
@@ -18,7 +18,7 @@ extension Commands {
                                _ environment: [String: String]?,
                                _ currentDirectory: URL?,
                                _ userInfo: [String: Any],
-                               _ stackTrace: CLIStackTrace) throws -> Int32 {
+                               _ stackTrace: CodeStackTrace) throws -> Int32 {
         self.console.print("\(dSwiftModuleName) version \(dSwiftVersion)")
         return 0
     }
