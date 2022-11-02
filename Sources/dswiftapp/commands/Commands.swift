@@ -113,7 +113,7 @@ public struct Commands {
                                          caseSensitive: false,
                                          actionHandler: self.cleanResetDSwiftBuilds)
         // package rest
-        package.createPreCLICommand(command: "rest",
+        package.createPreCLICommand(command: "reset",
                                          caseSensitive: false,
                                          actionHandler: self.cleanResetDSwiftBuilds)
         
