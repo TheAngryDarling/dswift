@@ -366,7 +366,7 @@ public struct PackageDescription {
                     let currentVer = match.value(withName: "currentVer") {
                     throw Error.minimumSwiftNotMet(current: currentVer, required: minVer)
                 } else if let describeStr = output,
-                          let match = try! describeStr.firstMatch(pattern: "unable to restore state from (?<schemaPath>.+/dependencies-state.json; unsupported schema version (?<schemaVer>.+)"),
+                          let match = try! describeStr.firstMatch(pattern: "unable to restore state from (?<schemaPath>.+)/dependencies-state.json; unsupported schema version (?<schemaVer>.+)"),
                           let schemaPath = match.value(withName: "schemaPath"),
                           let schemaVer = match.value(withName: "schemaVer") {
                     throw Error.unsupportedPackageSchemaVersion(schemaPath: schemaPath,
