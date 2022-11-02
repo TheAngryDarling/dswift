@@ -109,13 +109,17 @@ public struct Commands {
                                      preActionHandler: self.commandPackageInitPreSwift,
                                      postActionHandler: self.commandPackageInitPostSwift)
         // package clean
-        package.createPreCLICommand(command: "clean",
-                                         caseSensitive: false,
-                                         actionHandler: self.cleanResetDSwiftBuilds)
-        // package rest
-        package.createPreCLICommand(command: "reset",
-                                         caseSensitive: false,
-                                         actionHandler: self.cleanResetDSwiftBuilds)
+        package.createWrappedCommand(command: "clean",
+                                     caseSensitive: false,
+                                     passthroughOptions: .none,
+                                     preActionHandler: self.cleanResetDSwiftBuildsPreSwift,
+                                     postActionHandler: self.cleanResetDSwiftBuildsPostSwift)
+        // package reset
+        package.createWrappedCommand(command: "reset",
+                                    caseSensitive: false,
+                                     passthroughOptions: .none,
+                                     preActionHandler: self.cleanResetDSwiftBuildsPreSwift,
+                                     postActionHandler: self.cleanResetDSwiftBuildsPostSwift)
         
         // get help screen to determine which commands are available
         if let packageHelp = try? swiftWrapper.cli.waitAndCaptureStringResponse(arguments: ["package", "-help"]) {

@@ -16,20 +16,61 @@ import PathHelpers
 
 extension Commands {
     
+    public func cleanResetDSwiftBuildsPreSwift(_ parent: CLICommandGroup,
+                                               _ argumentStartingAt: Int,
+                                               _ arguments: inout [String],
+                                               _ environment: [String: String]?,
+                                               _ currentDirectory: URL?,
+                                               _ storage: inout [String: Any]?,
+                                               _ userInfo: [String: Any],
+                                               _ stackTrace: CodeStackTrace) throws -> Int32 {
+        // Try and preload the package description before the clean/reset
+        if let packageDetails = try? PackageDescription(swiftCommand: settings.swiftCommand,
+                                                        packagePath: self.currentProjectPath,
+                                                        loadDependencies: false,
+                                                        console: self.console) {
+            if storage == nil { storage = [:] }
+            storage!["PackageDetails"] = packageDetails
+        }
+        return 0
+        
+    }
     /// Clean any swift files build from dswift
-    public func cleanResetDSwiftBuilds(_ parent: CLICommandGroup,
-                                       _ argumentStartingAt: Int,
-                                       _ arguments: inout [String],
-                                       _ environment: [String: String]?,
-                                       _ currentDirectory: URL?,
-                                       _ userInfo: [String: Any],
-                                       _ stackTrace: CLIStackTrace) throws -> Int32 {
-        self.console.printVerbose("Loading package details", object: self)
-        let packageDetails = try PackageDescription(swiftCommand: settings.swiftCommand,
+    public func cleanResetDSwiftBuildsPostSwift(_ parent: CLICommandGroup,
+                                                _ argumentStartingAt: Int,
+                                                _ arguments: [String],
+                                                _ environment: [String: String]?,
+                                                _ currentDirectory: URL?,
+                                                _ storage: [String: Any]?,
+                                                _ userInfo: [String: Any],
+                                                _ stackTrace: CodeStackTrace,
+                                                _ exitStatusCode: Int32) throws -> Int32 {
+        
+        guard exitStatusCode == 0 else { return exitStatusCode }
+        
+        // try an get package detail from pre clean / reset
+        var pkgDetails = storage?["PackageDetails"] as? PackageDescription
+        
+        if pkgDetails == nil {
+            // package description was not preloaded
+            // lets call package update to load up the package
+            if let pkgUpdateExitCode = try? parent.execute(["package", "update"],
+                                                           stackTrace: stackTrace.stacking()),
+               pkgUpdateExitCode == 0 {
+                self.console.printVerbose("Loading package details", object: self)
+                pkgDetails = try PackageDescription(swiftCommand: settings.swiftCommand,
                                                     packagePath: self.currentProjectPath,
                                                     loadDependencies: false,
                                                     console: self.console)
-        self.console.printVerbose("Package details loaded", object: self)
+                self.console.printVerbose("Package details loaded", object: self)
+            }
+        }
+        
+        
+        guard let packageDetails = pkgDetails else {
+            self.console.printVerbose("Unable to load package details", object: self)
+            return 1
+        }
         
         for t in packageDetails.targets {
             
