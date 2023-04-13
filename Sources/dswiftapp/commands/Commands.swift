@@ -10,6 +10,8 @@ import VersionKit
 import dswiftlib
 import PathHelpers
 
+import CLIWrapper
+
 /// Namespace where all the different commands are stored
 public struct Commands {
     /// Information about the current version of DSwift
@@ -99,7 +101,8 @@ public struct Commands {
         
         let package = swiftWrapper.createCommandGroup(command: "package",
                                                       caseSensitive: false,
-                                                      helpAction: .useParentAction)
+                                                      helpAction: .useParentAction,
+                                                      defaultAction: CLIPassthroughAction.shared)
         
         
         // package init

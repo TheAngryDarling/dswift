@@ -38,7 +38,7 @@ let package = Package(
         .package(url: "https://github.com/TheAngryDarling/SwiftCLICapture.git",
                  from: "3.0.2"),
         .package(url: "https://github.com/TheAngryDarling/SwiftCLIWrapper.git",
-                 from: "2.0.1"),
+                 from: "2.0.2"),
         .package(url: "https://github.com/TheAngryDarling/SwiftSynchronizeObjects.git",
                     from: "1.0.3"),
         .package(url: "https://github.com/TheAngryDarling/SwiftJSONCommentCleaner.git",

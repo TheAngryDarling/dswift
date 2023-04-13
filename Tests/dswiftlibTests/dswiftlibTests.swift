@@ -1507,6 +1507,8 @@ I hope that this works
             return
         }
         
+        // Minimum version where swift package plugin was introduced
+        let minVerPackagePlugins: Version.SingleVersion = "5.7"
         // Minimun version used to change the main.swift to {AppName}.swift using the @main attribute
         let minVerAppSwiftMainFile: Version.SingleVersion = "5.7"
         // Minimun version used target exclude attribute
@@ -1728,6 +1730,34 @@ I hope that this works
             XCTAssertTrue(out.contains("This is content from the included file"))
             XCTAssertTrue(out.contains("This is content from the included folder file"))
             
+            /// Empty buffer between each call
+            outputBuffer.empty()
+            
+            if swiftVer >= minVerPackagePlugins {
+                // try and build the package (process the dswift files + build swift)
+                guard DSwiftApp.execute(outputCapturing: .capture(using: outputBuffer),
+                                        arguments: workingSwiftCommand + [
+                                            "package",
+                                            "plugin",
+                                            "--list"]) == 0 else {
+                    var msg: String = ""
+                    let dta = outputBuffer.readBuffer()
+                    if let path = String(data: dta, encoding: .utf8) {
+                        msg = path
+                    }
+                    XCTFail("Failed to list package plugins:\n\(msg)")
+                    return
+                }
+                
+                guard let _ = String(data: outputBuffer.readBuffer(),
+                                                    encoding: .utf8) else {
+                    XCTFail("Unable to parse plugin list output")
+                    return
+                }
+                
+                /// Empty buffer between each call
+                outputBuffer.empty()
+            }
             
         } catch {
             XCTFail("Error: \(error)")
