@@ -1509,7 +1509,10 @@ I hope that this works
         
         // Minimun version used to change the main.swift to {AppName}.swift using the @main attribute
         let minVerAppSwiftMainFile: Version.SingleVersion = "5.7"
-        
+        // Minimun version used target exclude attribute
+        let minTargetExcludeAttribute: Version.SingleVersion = "5.7"
+        // an array of paths to include in the exclude tag
+        var excludePaths: [FSPath] = []
         
         let outputBuffer = CLICapture.STDOutputBuffer()
         do {
@@ -1573,6 +1576,8 @@ I hope that this works
                // keep copy of original main file for debuggin purposes
                try mainSwiftFile.move(to: mainSwiftFile.appendingExtension("org.txt"),
                                       using: fileManager)
+               // add old main file to exclude paths to stop warnings
+                excludePaths.append(mainSwiftFile.appendingExtension("org.txt"))
            } catch {
                XCTFail("Failed to remove default main(\(mainSwiftFile.string): \(error)")
                return
@@ -1599,6 +1604,8 @@ I hope that this works
                 let dswiftFile = srcTestApp.appendingComponent("testapp_dswift._dswift")
                 try dswiftFile.copy(to: appSourceFolder.appendingComponent("testapp_dswift.dswift"),
                                            using: fileManager)
+                // add testapp_dswift.dswift to exclude list
+                excludePaths.append(appSourceFolder.appendingComponent("testapp_dswift.dswift"))
             } catch {
                 XCTFail("Failed to copy primary dswift file: \(error)")
                 return
@@ -1608,6 +1615,8 @@ I hope that this works
                 let includeFile = srcTestApp.appendingComponent("included.file.dswiftInclude")
                 try includeFile.copy(to: appSourceFolder.appendingComponent("included.file.dswiftInclude"),
                                      using: fileManager)
+                // add included.file.dswiftInclude to the exclude list
+                excludePaths.append(appSourceFolder.appendingComponent("included.file.dswiftInclude"))
             } catch {
                 XCTFail("Failed to copy primary included file: \(error)")
                 return
@@ -1617,12 +1626,64 @@ I hope that this works
                 let includeFolder = srcTestApp.appendingComponent("includeFolder")
                 try includeFolder.copy(to: appSourceFolder.appendingComponent("includeFolder"),
                                        using: fileManager)
+                // add includeFolder to the exclude list
+                excludePaths.append(appSourceFolder.appendingComponent("includeFolder"))
             } catch {
                 XCTFail("Failed to copy included folder: \(error)")
                 return
             }
             
-            
+            // if we have exclude items in the exclude list
+            // and the current swift version supports the exclude attribute
+            // we will modify the Package.swift file
+            if !excludePaths.isEmpty &&
+                swiftVer >= minTargetExcludeAttribute {
+                do {
+                    // open the Package.swift file
+                    var str = try String(contentsOf: tmpFolder.appendingComponent("Package.swift"),
+                                         encoding: .utf8,
+                                         using: fileManager)
+                    // find the beginning of the .executableTarget(
+                    guard let startRange = str.range(of: ".executableTarget(") else {
+                        XCTFail("Unable to find executbleTarget in Package.swift")
+                        return
+                    }
+                    // find the end of the executableTarget block.
+                    // looking for the first ) after '.executableTarget('
+                    guard let targetEndRange = str.range(of: ")", range: startRange.upperBound..<str.endIndex) else {
+                        XCTFail("Unable to find executbleTarget closing ) in Package.swift")
+                        return
+                    }
+                    // start building the exclude attribute
+                    var workingString = ",\n            exclude: ["
+                    
+                    // Build elements
+                    // Filter only any paths that are under the {appSourceFolder} path
+                    workingString += excludePaths.filter { return $0.isChildPath(of: appSourceFolder) }
+                    // convert full path to relative path
+                        .compactMap { return $0.relative(to: appSourceFolder) }
+                    // convert relative path to string
+                        .map { return $0.string }
+                    // encapsulate each string in double quotes
+                        .map { "\"\($0)\"" }
+                    // join together with a ',\n{tabs}'
+                        .joined(separator: ",\n                      ")
+                    // add end of exclude attribute array block
+                    workingString += "]"
+                    // insert the exclude attribute into the Package.swift string (str)
+                    str.insert(contentsOf: workingString, at: targetEndRange.lowerBound)
+                    // save the str to the Package.swift file
+                    try str.write(to: tmpFolder.appendingComponent("Package.swift"),
+                                  atomically: true,
+                                  encoding: .utf8,
+                                  using: fileManager)
+                    
+                } catch {
+                    XCTFail("Failed to insert exclude elments in Package.swift")
+                    return
+                }
+                
+            }
             guard DSwiftApp.execute(outputCapturing: .capture(using: outputBuffer),
                                     arguments: workingSwiftCommand + [
                                                 "build",
