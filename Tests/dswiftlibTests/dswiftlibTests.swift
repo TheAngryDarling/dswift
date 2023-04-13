@@ -1465,6 +1465,52 @@ I hope that this works
         var workingSwiftCommand = generateSwiftCommandArgs(tmpFolder)
         workingSwiftCommand.insert("dswift", at: 0)
         
+        var swiftCommand = DSwiftSettings.defaultSwiftCommand
+                
+        // try and parse out the swift command from the arguments if its there
+        // see if ther eis the --swiftPath argument
+        if let idx = workingSwiftCommand.firstIndex(of: "--swiftPath") {
+            guard idx < workingSwiftCommand.count - 1 else {
+                XCTFail("Missing '--swiftPath' value")
+                return
+            }
+            
+            swiftCommand = .init(executablePath: workingSwiftCommand[idx+1])
+            
+        } else if let idx = workingSwiftCommand.firstIndex(of: "--swiftCommandBegin") {
+            // see if there is the --swiftCommandBegin ... --swiftCommandEnd arguments
+            guard let endIdx = workingSwiftCommand.firstIndex(of: "--swiftCommandEnd") else {
+                XCTFail("Missing '--swiftCommandEnd'")
+                return
+            }
+            guard idx < endIdx else {
+                XCTFail("'--swiftCommandBegin' found after '--swiftCommandEnd'")
+                return
+            }
+            var arguments: [String] = []
+            if endIdx > idx+2 {
+                arguments = Array<String>(workingSwiftCommand[idx+2..<endIdx])
+            }
+            swiftCommand = .init(executablePath: workingSwiftCommand[idx+1], arguments: arguments)
+        }
+        
+        // create a cliWrapper to capture swift command outputs
+        // basically we want to get the swift version being
+        // used
+        let swiftCLI = SwiftCLIWrapper(swiftCommand: swiftCommand)
+        
+        let swiftVer: Version.SingleVersion
+        do {
+            swiftVer = try swiftCLI.getVersion()
+        } catch {
+            XCTFail("Failed to retrive Swift Version: \(error)")
+            return
+        }
+        
+        // Minimun version used to change the main.swift to {AppName}.swift using the @main attribute
+        let minVerAppSwiftMainFile: Version.SingleVersion = "5.7"
+        
+        
         let outputBuffer = CLICapture.STDOutputBuffer()
         do {
             if !tmpFolder.exists(using: fileManager) {
@@ -1492,25 +1538,53 @@ I hope that this works
             outputBuffer.empty()
             
             // copy test code here
-            let sourceFolder = tmpFolder.appendingComponent("Sources")
-            let appSourceFolder = sourceFolder.appendingComponent(appName)
-            let mainSwiftFileV5_7 = appSourceFolder.appendingComponent("\(appName).swift")
-            let mainSwiftFileLTV5_7 = appSourceFolder.appendingComponent("main.swift")
-            let mainSwiftFile: FSPath
-            if mainSwiftFileLTV5_7.exists(using: fileManager) {
-                mainSwiftFile = mainSwiftFileLTV5_7
-            } else if mainSwiftFileV5_7.exists(using: fileManager) {
-                mainSwiftFile = mainSwiftFileV5_7
-            } else {
-                XCTFail("Unable to identify Test App's main file")
-                return
-            }
-            do {
-                try mainSwiftFile.remove(using: fileManager)
-            } catch {
-                XCTFail("Failed to remove default main(\(mainSwiftFile.string): \(error)")
-                return
-            }
+           let sourceFolder = tmpFolder.appendingComponent("Sources")
+           
+           /*
+               Updated lookin for main file, as of 5.8, to include
+               directly at ./Sources/
+           */
+           let searchFolders = [sourceFolder,
+                                sourceFolder.appendingComponent(appName)]
+           let mainFiles = ["main.swift",
+                            "\(appName).swift"]
+           
+           var mainFile: FSPath? = nil
+           for folder in searchFolders where mainFile == nil {
+               for main in mainFiles where mainFile == nil {
+                   let file = folder.appendingComponent(main)
+                   if file.exists(using: fileManager) {
+                       mainFile = file
+                       
+                   }
+               }
+           }
+           guard var mainSwiftFile = mainFile else {
+               XCTFail("Unable to identify Test App's main file")
+               return
+           }
+           
+           // get the app source folder
+           // this could be ../Sources/{appname}
+           // or, as of 5.8, ../Sources
+           let appSourceFolder = mainSwiftFile.deletingLastComponent()
+           do {
+               //try mainSwiftFile.remove(using: fileManager)
+               // keep copy of original main file for debuggin purposes
+               try mainSwiftFile.move(to: mainSwiftFile.appendingExtension("org.txt"),
+                                      using: fileManager)
+           } catch {
+               XCTFail("Failed to remove default main(\(mainSwiftFile.string): \(error)")
+               return
+           }
+           
+           // if the main file is main.swift and the current swift version is >= 5.7
+           // we will use {AppName}.swift using the @main attribute.
+           // See Testse/dswiftlibTests/TestSwiftApp/testapp_main._swift for the main
+           if mainSwiftFile.string.hasSuffix("main.swift") &&
+              swiftVer >= minVerAppSwiftMainFile {
+               mainSwiftFile = mainSwiftFile.deletingLastComponent().appendingComponent("\(appName).swift")
+           }
             
             let srcTestApp = FSPath(self.testTargetURL.appendingPathComponent("TestSwiftApp").path)
             do {
@@ -1768,6 +1842,26 @@ I hope that this works
             mapPath(path)
             
             if let uid = userId {
+                // Added the HOME env var and mapping
+                // a home path is required from Swift 5.8
+                // due to it wanting to create folders in the home
+                // location
+                
+                
+                // set the $HOME env variable
+                // we do this so our user has a home directory
+                rtn.append(contentsOf: [
+                    "-e",
+                    "HOME=/developer"
+                ])
+                // map the home director to a valid read/writable
+                // location
+                let projectParentFolder = path.deletingLastComponent()
+                rtn.append(contentsOf: [
+                    "-v",
+                    "\(projectParentFolder.string):/developer"
+                    
+                ])
                 // add docker arguments to specify the
                 // user id to use instead of root(0)
                 //
@@ -1781,7 +1875,7 @@ I hope that this works
                 ])
             }
             // Add Docker Image/tag to use for the container
-            rtn.append("swift:4.0")
+            rtn.append("swift:latest")
             // Add the command to execute within the docker container
             rtn.append("swift")
             
