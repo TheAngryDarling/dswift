@@ -1439,15 +1439,24 @@ I hope that this works
     }
     
     /// Run the test app for the given swift command
-    /// - Parameter generateSwiftCommandArgs: Callback method used to generate the dswift arguments used setup the swift command.  This callback provides the path to the current project directory.  When mapping for containers, the project directory must be mapped as well as the NSTemporaryDirectory()
-    func _testDSwiftCommands(_ generateSwiftCommandArgs: (_ projectDir: FSPath) -> [String] = { _ in return [] }) {
+    /// - Parameters:
+    ///   - uniqueName: The suffix to add to the app name to ensure uniqueness to combat naming conflict with parallel tests
+    ///   - generateSwiftCommandArgs: Callback method used to generate the dswift arguments used setup the swift command.  This callback provides the path to the current project directory.  When mapping for containers, the project directory must be mapped as well as the NSTemporaryDirectory()
+    func _testDSwiftCommands(uniqueName: String = "",
+                             _ generateSwiftCommandArgs: (_ projectDir: FSPath) -> [String] = { _ in return [] }) {
         
         
-        var appName: String = "TestSwiftApp"
+        var appName: String = "TestSwiftApp\(uniqueName)"
         let fileManager = FileManager.default
         let tempFolderBase = FSPath.tempDir
         var tmpFolder = tempFolderBase.appendingComponent(appName)
+        // keep track of current directory to reset afterwards
+        let previousWorkingDir = fileManager.currentDirectoryPath
         defer {
+            // change the current directory from tmpFolder to previousWorkingDir
+            // so any additional Processes that get executed will
+            // not throw an error
+            fileManager.changeCurrentDirectoryPath(previousWorkingDir)
             try? tmpFolder.remove(using: fileManager)
         }
         
@@ -1667,7 +1676,7 @@ I hope that this works
                     // convert relative path to string
                         .map { return $0.string }
                     // encapsulate each string in double quotes
-                        .map { "\"\($0)\"" }
+                        .map { return "\"\($0)\"" }
                     // join together with a ',\n{tabs}'
                         .joined(separator: ",\n                      ")
                     // add end of exclude attribute array block
@@ -1770,7 +1779,7 @@ I hope that this works
     
     func testDSwiftCommands() {
         
-        _testDSwiftCommands() { path in
+        _testDSwiftCommands(uniqueName: "D") { path in
             return ["---",
                     "--swiftPath",
                     DSwiftSettings.defaultSwiftPath.string,
@@ -1780,201 +1789,205 @@ I hope that this works
     
     func testDockerDSwiftCommands() {
         
-        struct UserInfo {
-            public let userId: Int
-            public let userName: String
-            public let groupId: Int
-            public let groupName: String
-        }
-        
-        #if os(Windows)
-        // this section is currently not supported
-        let pathSeperator: Character = ";"
-        let dirSeperator: String = "\\"
-        let dockerCommand: String = "docker.exe"
-        #else
-        let pathSeperator: Character = ":"
-        let dirSeperator: String = "/"
-        let dockerCommand: String = "docker"
-        #endif
-        var paths = ProcessInfo.processInfo.environment["PATH", default: ""].split(separator: pathSeperator).map(String.init)
-        
-        if dirSeperator == "/" && !paths.contains("/usr/local/bin") {
-            paths.append("/usr/local/bin")
-        }
-        
-        var dockerPath: String? = nil
-        let fileManager = FileManager.default
-        
-        for var path in paths {
-            if path.hasSuffix(dirSeperator) {
-                path.removeLast()
-            }
-            let testDockerPath = String(path + dirSeperator + dockerCommand)
-            if fileManager.fileExists(atPath: testDockerPath),
-               fileManager.isExecutableFile(atPath: testDockerPath) {
-                dockerPath = testDockerPath
+        // made sure to not try and run test
+        // while running wihtin docker
+        #if !DOCKER_BUILD
+            struct UserInfo {
+                public let userId: Int
+                public let userName: String
+                public let groupId: Int
+                public let groupName: String
             }
             
-        }
-        
-        guard let dp = dockerPath else {
-            print("WARNING: Unable to test testDockerDSwiftCommands because Docker not found")
-            return
-        }
-        
-        // Test if docker is running
-        let dockerStatusProcess = Process()
-        // setup path to docker executable
-        dockerStatusProcess.executable = URL(fileURLWithPath: dp)
-        // add arguments (simple command to test if it fails)
-        dockerStatusProcess.arguments = ["stats", "--no-stream"]
-        // setup pipe to capture all output and stop if from going
-        // to the stdout.  We will ignore the output
-        let dockerStatusProcessNullPipe = Pipe()
-        dockerStatusProcess.standardOutput = dockerStatusProcessNullPipe
-        dockerStatusProcess.standardError = dockerStatusProcessNullPipe
-        // Run the executable
-        guard XCTAssertsNoThrow(try dockerStatusProcess.execute()) else {
-            return
-        }
-        // wait for it to finish
-        dockerStatusProcess.waitUntilExit()
-        // make sure it ran successfully.  If failed
-        // lets fail the test
-        guard dockerStatusProcess.terminationStatus == 0 else {
-            XCTFail("Docker not running")
-            return
-        }
-        // Lets try and get the current user id number
-        // for mapping into docker
-        let userId = IDCLI.getUserID()
-        
-        if userId == nil {
-            print("WARNING: Unable to get current user id")
-        }
-        
-        _testDSwiftCommands() { path in
-            /*
-             Required Volumes to map into docker with the same as real path
-                1: FSPath.tempDir (And if is symlink also real path)
-                    This location is used to create sub folders to generate swift
-                2: Path to project or a parent folder of the project
-            */
+            #if os(Windows)
+            // this section is currently not supported
+            let pathSeperator: Character = ";"
+            let dirSeperator: String = "\\"
+            let dockerCommand: String = "docker.exe"
+            #else
+            let pathSeperator: Character = ":"
+            let dirSeperator: String = "/"
+            let dockerCommand: String = "docker"
+            #endif
+            var paths = ProcessInfo.processInfo.environment["PATH", default: ""].split(separator: pathSeperator).map(String.init)
             
-            // Setup dswift swift command begin
-            var rtn: [String] = ["---",
-                                 "--swiftCommandBegin"]
+            if dirSeperator == "/" && !paths.contains("/usr/local/bin") {
+                paths.append("/usr/local/bin")
+            }
             
-            // Setup Docker Swift Container Command start
-            rtn.append(contentsOf: [
-                                 // Path to docker
-                                 dp,
-                                 // run container
-                                 "run",
-                                 // name container dswift-(folder name)-(random characters)
-                                 "--name",
-                                 "dswift-\(path.lastComponent)-\(String.randomAlphaNumericString(count: 8))",
-                                 // remove container after exit
-                                 "--rm",
-                                 "-t",
-                                 // setup extra privileges
-                                 "--cap-add=SYS_PTRACE",
-                                 "--security-opt",
-                                 "seccomp=unconfined"
-                                 ])
+            var dockerPath: String? = nil
+            let fileManager = FileManager.default
             
-            // Setup Mapped Volumes
-            var mappedDirs: [FSPath] = []
-            
-            func mapPath(_ pth: FSPath) {
-                
-                // see if path is already mapped or is a child path of a previously
-                // mapepd volume
-                if !mappedDirs.contains(pth) &&
-                   !mappedDirs.contains(where: { return pth.isChildPath(of: $0) }) {
-                    // Map path into the docker container
-                    rtn.append(contentsOf: ["-v",
-                                            "\(pth.string):\(pth.string)"])
-                    // Save the mapped path for reference
-                    // for any additional paths to map
-                    mappedDirs.append(pth)
-                    
+            for var path in paths {
+                if path.hasSuffix(dirSeperator) {
+                    path.removeLast()
                 }
-               
-                // safe the current directory
-                let oldDir = fileManager.currentDirectoryPath
-                // change the current directory to the pth directory
-                fileManager.changeCurrentDirectoryPath(pth.string)
-                // check to see if path was symbolic link
-                if fileManager.currentDirectoryPath != pth.string {
-                    // Path was a symbolic link,  mapping real path into docker container
-                    let realPath = FSPath(fileManager.currentDirectoryPath)
-                    // make sure the real path is not a previously mapped path or
-                    // a child path of a previously mapped path
-                    if !mappedDirs.contains(realPath) &&
-                       !mappedDirs.contains(where: { return realPath.isChildPath(of: $0) }) {
-                        // Map the path into the docker container
+                let testDockerPath = String(path + dirSeperator + dockerCommand)
+                if fileManager.fileExists(atPath: testDockerPath),
+                   fileManager.isExecutableFile(atPath: testDockerPath) {
+                    dockerPath = testDockerPath
+                }
+                
+            }
+            
+            guard let dp = dockerPath else {
+                print("WARNING: Unable to test testDockerDSwiftCommands because Docker not found")
+                return
+            }
+            
+            // Test if docker is running
+            let dockerStatusProcess = Process()
+            // setup path to docker executable
+            dockerStatusProcess.executable = URL(fileURLWithPath: dp)
+            // add arguments (simple command to test if it fails)
+            dockerStatusProcess.arguments = ["stats", "--no-stream"]
+            // setup pipe to capture all output and stop if from going
+            // to the stdout.  We will ignore the output
+            let dockerStatusProcessNullPipe = Pipe()
+            dockerStatusProcess.standardOutput = dockerStatusProcessNullPipe
+            dockerStatusProcess.standardError = dockerStatusProcessNullPipe
+            // Run the executable
+            guard XCTAssertsNoThrow(try dockerStatusProcess.execute()) else {
+                return
+            }
+            // wait for it to finish
+            dockerStatusProcess.waitUntilExit()
+            // make sure it ran successfully.  If failed
+            // lets fail the test
+            guard dockerStatusProcess.terminationStatus == 0 else {
+                XCTFail("Docker not running")
+                return
+            }
+            // Lets try and get the current user id number
+            // for mapping into docker
+            let userId = IDCLI.getUserID()
+            
+            if userId == nil {
+                print("WARNING: Unable to get current user id")
+            }
+            
+            _testDSwiftCommands(uniqueName: "DD") { path in
+                /*
+                 Required Volumes to map into docker with the same as real path
+                    1: FSPath.tempDir (And if is symlink also real path)
+                        This location is used to create sub folders to generate swift
+                    2: Path to project or a parent folder of the project
+                */
+                
+                // Setup dswift swift command begin
+                var rtn: [String] = ["---",
+                                     "--swiftCommandBegin"]
+                
+                // Setup Docker Swift Container Command start
+                rtn.append(contentsOf: [
+                                     // Path to docker
+                                     dp,
+                                     // run container
+                                     "run",
+                                     // name container dswift-(folder name)-(random characters)
+                                     "--name",
+                                     "dswift-\(path.lastComponent)-\(String.randomAlphaNumericString(count: 8))",
+                                     // remove container after exit
+                                     "--rm",
+                                     "-t",
+                                     // setup extra privileges
+                                     "--cap-add=SYS_PTRACE",
+                                     "--security-opt",
+                                     "seccomp=unconfined"
+                                     ])
+                
+                // Setup Mapped Volumes
+                var mappedDirs: [FSPath] = []
+                
+                func mapPath(_ pth: FSPath) {
+                    
+                    // see if path is already mapped or is a child path of a previously
+                    // mapepd volume
+                    if !mappedDirs.contains(pth) &&
+                       !mappedDirs.contains(where: { return pth.isChildPath(of: $0) }) {
+                        // Map path into the docker container
                         rtn.append(contentsOf: ["-v",
-                                                "\(realPath.string):\(realPath.string)"])
+                                                "\(pth.string):\(pth.string)"])
                         // Save the mapped path for reference
                         // for any additional paths to map
-                        mappedDirs.append(realPath)
+                        mappedDirs.append(pth)
+                        
                     }
-                }
-                // change the current directory back to original
-                fileManager.changeCurrentDirectoryPath(oldDir)
-                
-            }
-            
-            // Map temp folder
-            mapPath(FSPath.tempDir)
-            // Map path to test project
-            mapPath(path)
-            
-            if let uid = userId {
-                // Added the HOME env var and mapping
-                // a home path is required from Swift 5.8
-                // due to it wanting to create folders in the home
-                // location
-                
-                
-                // set the $HOME env variable
-                // we do this so our user has a home directory
-                rtn.append(contentsOf: [
-                    "-e",
-                    "HOME=/developer"
-                ])
-                // map the home director to a valid read/writable
-                // location
-                let projectParentFolder = path.deletingLastComponent()
-                rtn.append(contentsOf: [
-                    "-v",
-                    "\(projectParentFolder.string):/developer"
+                   
+                    // safe the current directory
+                    let oldDir = fileManager.currentDirectoryPath
+                    // change the current directory to the pth directory
+                    fileManager.changeCurrentDirectoryPath(pth.string)
+                    // check to see if path was symbolic link
+                    if fileManager.currentDirectoryPath != pth.string {
+                        // Path was a symbolic link,  mapping real path into docker container
+                        let realPath = FSPath(fileManager.currentDirectoryPath)
+                        // make sure the real path is not a previously mapped path or
+                        // a child path of a previously mapped path
+                        if !mappedDirs.contains(realPath) &&
+                           !mappedDirs.contains(where: { return realPath.isChildPath(of: $0) }) {
+                            // Map the path into the docker container
+                            rtn.append(contentsOf: ["-v",
+                                                    "\(realPath.string):\(realPath.string)"])
+                            // Save the mapped path for reference
+                            // for any additional paths to map
+                            mappedDirs.append(realPath)
+                        }
+                    }
+                    // change the current directory back to original
+                    fileManager.changeCurrentDirectoryPath(oldDir)
                     
-                ])
-                // add docker arguments to specify the
-                // user id to use instead of root(0)
-                //
-                // This helps when dockerd is running
-                // in root but you want any files that the
-                // container generates to be accessable by
-                // the current user
-                rtn.append(contentsOf: [
-                    "-u",
-                    "\(uid)"
-                ])
+                }
+                
+                // Map temp folder
+                mapPath(FSPath.tempDir)
+                // Map path to test project
+                mapPath(path)
+                
+                if let uid = userId {
+                    // Added the HOME env var and mapping
+                    // a home path is required from Swift 5.8
+                    // due to it wanting to create folders in the home
+                    // location
+                    
+                    
+                    // set the $HOME env variable
+                    // we do this so our user has a home directory
+                    rtn.append(contentsOf: [
+                        "-e",
+                        "HOME=/developer"
+                    ])
+                    // map the home director to a valid read/writable
+                    // location
+                    let projectParentFolder = path.deletingLastComponent()
+                    rtn.append(contentsOf: [
+                        "-v",
+                        "\(projectParentFolder.string):/developer"
+                        
+                    ])
+                    // add docker arguments to specify the
+                    // user id to use instead of root(0)
+                    //
+                    // This helps when dockerd is running
+                    // in root but you want any files that the
+                    // container generates to be accessable by
+                    // the current user
+                    rtn.append(contentsOf: [
+                        "-u",
+                        "\(uid)"
+                    ])
+                }
+                // Add Docker Image/tag to use for the container
+                rtn.append("swift:latest")
+                // Add the command to execute within the docker container
+                rtn.append("swift")
+                
+                // append ending dswift arguments
+                rtn.append(contentsOf: ["--swiftCommandEnd",
+                                        "---"])
+                return rtn
             }
-            // Add Docker Image/tag to use for the container
-            rtn.append("swift:latest")
-            // Add the command to execute within the docker container
-            rtn.append("swift")
-            
-            // append ending dswift arguments
-            rtn.append(contentsOf: ["--swiftCommandEnd",
-                                    "---"])
-            return rtn
-        }
+        #endif
     }
 
     static var allTests = [
